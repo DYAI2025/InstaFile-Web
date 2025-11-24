@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>InstaFile – Instant Document Creator</title>
+  <meta name="description" content="InstaFile ist eine Chrome-/Edge-Erweiterung, die markierten Text mit einem Klick in sauber benannte Dateien verwandelt – für Code, Daten, Notizen, PDFs und Label." />
+  <style>
+    :root {
+      --bg: #050919;
+      --bg-elevated: #0c1024;
+      --bg-soft: #151a33;
+      --accent: #ffcf33;
+      --accent-soft: #f973ff;
+      --text-main: #f9f9ff;
+      --text-muted: #b4b7d3;
+      --border-subtle: rgba(255, 255, 255, 0.06);
+      --shadow-soft: 0 18px 45px rgba(0, 0, 0, 0.55);
+      --radius-lg: 18px;
+      --radius-pill: 999px;
+      --max-width: 1120px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top left, #292865, #050919 55%);
+      color: var(--text-main);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    img {
+      max-width: 100%;
+      display: block;
+    }
+
+    .page {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: 20px 16px 56px;
+    }
+
+    header.nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 8px 4px 16px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-logo {
+      width: 36px;
+      height: 36px;
+      border-radius: 999px;
+      background: radial-gradient(circle at 30% 20%, #5c5cff, #3b2e8b 60%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.45);
+    }
+
+    .brand-logo img {
+      width: 22px;
+      height: 22px;
+    }
+
+    .brand-text-title {
+      font-weight: 600;
+      letter-spacing: 0.03em;
+    }
+
+    .brand-text-sub {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    .nav-ctas {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .pill-badge {
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      font-size: 0.72rem;
+      background: linear-gradient(135deg, #ff8acb, #9a73ff);
+      color: #1a102b;
+      font-weight: 600;
+    }
+
+    .btn {
+      border: none;
+      border-radius: var(--radius-pill);
+      padding: 8px 18px;
+      font-size: 0.86rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #ffd54b, #ff9b2f);
+      color: #1a1020;
+      font-weight: 600;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.7);
+    }
+
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-muted);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .btn-primary span.icon {
+      font-size: 1.05rem;
+    }
+
+    main {
+      margin-top: 10px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.2fr);
+      gap: 32px;
+      align-items: center;
+      padding: 24px 18px 26px;
+      border-radius: 26px;
+      background: radial-gradient(circle at top left, #282b6a 0%, #101226 40%, #0b101f 80%);
+      box-shadow: var(--shadow-soft);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .hero-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 3px 10px 3px 4px;
+      border-radius: var(--radius-pill);
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      margin-bottom: 14px;
+      font-size: 0.74rem;
+      color: var(--text-muted);
+    }
+
+    .hero-kicker-dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #ffd54b, #ff9b2f);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+    }
+
+    .hero-title {
+      font-size: clamp(1.9rem, 3vw, 2.4rem);
+      line-height: 1.1;
+      margin: 0 0 10px;
+    }
+
+    .hero-title span.highlight {
+      background: linear-gradient(135deg, #ffb347, #ff73c6);
+      -webkit-background-clip: text;
+      color: transparent;
+    }
+
+    .hero-subtitle {
+      font-size: 0.98rem;
+      color: var(--text-muted);
+      max-width: 32rem;
+      margin-bottom: 18px;
+    }
+
+    .hero-bullets {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 8px 16px;
+      margin-bottom: 16px;
+      font-size: 0.86rem;
+    }
+
+    .hero-bullets span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-muted);
+    }
+
+    .hero-bullets span::before {
+      content: "•";
+      color: var(--accent);
+    }
+
+    .hero-cta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .hero-note {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .hero-note strong {
+      color: var(--accent);
+    }
+
+    .hero-visual {
+      position: relative;
+    }
+
+    .hero-card {
+      background: radial-gradient(circle at top, #3b2e8b 0%, #151934 60%, #0c0f21 100%);
+      border-radius: 22px;
+      padding: 14px 14px 10px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .hero-card img {
+      border-radius: 14px;
+    }
+
+    .hero-fab {
+      position: absolute;
+      right: 10px;
+      bottom: -8px;
+      padding: 6px 12px;
+      border-radius: var(--radius-pill);
+      background: #ffffff;
+      color: #211b4b;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.6);
+    }
+
+    .hero-fab-icon {
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #4f46e5, #8b5cf6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffd54b;
+      font-size: 1.1rem;
+    }
+
+    .hero-fab-pill {
+      border-radius: var(--radius-pill);
+      background: linear-gradient(135deg, #ff8acb, #9a73ff);
+      padding: 2px 8px;
+      font-size: 0.7rem;
+      color: #160f33;
+      font-weight: 600;
+    }
+
+    section {
+      margin-top: 44px;
+    }
+
+    .section-header {
+      margin-bottom: 18px;
+    }
+
+    .section-kicker {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--accent-soft);
+      margin-bottom: 4px;
+    }
+
+    .section-title {
+      font-size: 1.28rem;
+      margin: 0 0 6px;
+    }
+
+    .section-sub {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      max-width: 30rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px 18px;
+    }
+
+    .card {
+      background: var(--bg-elevated);
+      border-radius: var(--radius-lg);
+      padding: 14px 14px 12px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .card-title {
+      font-size: 0.96rem;
+      margin-bottom: 6px;
+    }
+
+    .card-body {
+      font-size: 0.84rem;
+      color: var(--text-muted);
+    }
+
+    .card-tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .chip {
+      font-size: 0.72rem;
+      padding: 3px 8px;
+      border-radius: var(--radius-pill);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: var(--text-muted);
+    }
+
+    .chip-primary {
+      border: none;
+      background: rgba(167, 139, 250, 0.16);
+      color: #e5deff;
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px 18px;
+    }
+
+    .step-number {
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      background: rgba(148, 163, 253, 0.2);
+      border: 1px solid rgba(129, 140, 248, 0.7);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.76rem;
+      margin-bottom: 5px;
+    }
+
+    .screenshots {
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(0, 1.3fr);
+      gap: 16px;
+      align-items: stretch;
+    }
+
+    .screenshots-main,
+    .screenshots-side {
+      background: var(--bg-elevated);
+      border-radius: var(--radius-lg);
+      padding: 12px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .screenshots-main img,
+    .screenshots-side img {
+      border-radius: 12px;
+    }
+
+    .privacy-list {
+      list-style: none;
+      padding: 0;
+      margin: 10px 0 0;
+      font-size: 0.86rem;
+      color: var(--text-muted);
+    }
+
+    .privacy-list li {
+      margin-bottom: 6px;
+    }
+
+    .privacy-list li::before {
+      content: "✓";
+      color: var(--accent);
+      margin-right: 6px;
+    }
+
+    footer {
+      margin-top: 40px;
+      border-top: 1px solid var(--border-subtle);
+      padding-top: 14px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 16px;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    footer a {
+      color: var(--accent-soft);
+    }
+
+    .footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    @media (max-width: 880px) {
+      header.nav {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .nav-ctas {
+        width: 100%;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+      }
+      .hero {
+        grid-template-columns: minmax(0, 1fr);
+        padding: 18px 16px 20px;
+      }
+      .hero-visual {
+        order: -1;
+      }
+      .hero-fab {
+        bottom: -10px;
+      }
+      .screenshots {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="nav">
+      <div class="brand">
+        <div class="brand-logo">
+          <!-- TODO: Ersetze durch dein Blitz-Icon, z.B. assets/instafile_icon.png -->
+          <img src="assets/instafile_icon.png" alt="InstaFile Icon" />
+        </div>
+        <div>
+          <div class="brand-text-title">InstaFile</div>
+          <div class="brand-text-sub">Instant Document Creator</div>
+        </div>
+      </div>
+      <div class="nav-ctas">
+        <div class="pill-badge">Chrome &amp; Edge • Manifest&nbsp;V3</div>
+        <a
+          class="btn btn-secondary"
+          href="https://github.com/DYAI2025/Instdoc"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <span>GitHub&nbsp;Repo</span>
+        </a>
+        <a
+          class="btn btn-primary"
+          href="https://chrome.google.com/webstore/detail/instafile/EXTENSION_ID"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <span class="icon">⚡</span>
+          <span>Zu Chrome hinzufügen</span>
+        </a>
+      </div>
+    </header>
+
+    <main>
+      <!-- HERO -->
+      <section class="hero">
+        <div>
+          <div class="hero-kicker">
+            <div class="hero-kicker-dot">⚡</div>
+            <span>Markieren. Speichern. Fertig.</span>
+          </div>
+          <h1 class="hero-title">
+            Aus <span class="highlight">Textmarkierung</span> wird Datei – in
+            einem Klick.
+          </h1>
+          <p class="hero-subtitle">
+            InstaFile ist eine Browser-Erweiterung für Chrome &amp; Edge, die
+            markierten Text sofort in sauber benannte Dateien verwandelt –
+            für Code, Daten, Notizen, PDFs und Versandlabels. Ohne Copy &amp;
+            Paste. Ohne Kontextwechsel.
+          </p>
+          <div class="hero-bullets">
+            <span>Kontextmenü, Shortcuts &amp; Floating Button</span>
+            <span>Smart Detection für Code, JSON, YAML, CSV &amp; mehr</span>
+            <span>Label-PDFs im Format 89 × 28&nbsp;mm</span>
+            <span>100&nbsp;% lokal, keine Cloud, keine Telemetrie</span>
+          </div>
+          <div class="hero-cta-row">
+            <a
+              class="btn btn-primary"
+              href="https://chrome.google.com/webstore/detail/instafile/EXTENSION_ID"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span class="icon">⚡</span>
+              <span>InstaFile jetzt installieren</span>
+            </a>
+            <a
+              class="btn btn-secondary"
+              href="https://github.com/DYAI2025/Instdoc"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span>Code &amp; Doku ansehen</span>
+            </a>
+            <div class="hero-note">
+              <strong>Neu:</strong> Statistiken, Format-Empfehlungen und
+              Smart-Auto-Detect 2.0
+            </div>
+          </div>
+        </div>
+
+        <div class="hero-visual">
+          <div class="hero-card">
+            <!-- TODO: Nutze z. B. instafile_dyai_1280x800.png oder ein Popup-Screenshot -->
+            <img
+              src="assets/instafile_dyai_1280x800.png"
+              alt="InstaFile UI mit Schnell-Speichern"
+            />
+          </div>
+          <div class="hero-fab">
+            <div class="hero-fab-icon">⚡</div>
+            <div>
+              <div style="font-size: 0.76rem; font-weight: 600;">
+                2 Dateien heute
+              </div>
+              <div style="font-size: 0.7rem; opacity: 0.7;">
+                Letzter Save vor 7&nbsp;Minuten
+              </div>
+            </div>
+            <span class="hero-fab-pill">Smart&nbsp;Save</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- HOW IT WORKS -->
+      <section aria-labelledby="how-it-works-title">
+        <div class="section-header">
+          <div class="section-kicker">Workflow</div>
+          <h2 id="how-it-works-title" class="section-title">
+            So schnell wird Markierung zur Datei
+          </h2>
+          <p class="section-sub">
+            InstaFile hängt sich an deine bestehende Arbeitsweise – egal ob
+            du in der API-Doku, im Log-Viewer oder im Chat arbeitest.
+          </p>
+        </div>
+        <div class="steps">
+          <div class="card">
+            <div class="step-number">1</div>
+            <div class="card-title">Text markieren</div>
+            <p class="card-body">
+              Du markierst beliebigen Text im Browser – Code-Snippet,
+              JSON-Response, Notizblock, Versandadresse.
+            </p>
+          </div>
+          <div class="card">
+            <div class="step-number">2</div>
+            <div class="card-title">InstaFile auslösen</div>
+            <p class="card-body">
+              Wähle Kontextmenü, Shortcut oder Floating Button. Im Smart-Modus
+              erkennt InstaFile automatisch das passende Format.
+            </p>
+            <div class="card-tag-row">
+              <span class="chip chip-primary">Kontextmenü</span>
+              <span class="chip">Ctrl/Cmd + Shift + S</span>
+              <span class="chip">Floating Button</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="step-number">3</div>
+            <div class="card-title">Datei fertig im Ordner</div>
+            <p class="card-body">
+              Sekunden später liegt die Datei im konfigurierten
+              Download-Ordner – mit konsistentem Namen und optional
+              nach Typ sortiert.
+            </p>
+            <div class="card-tag-row">
+              <span class="chip">InstantFiles/json/…</span>
+              <span class="chip">instant_YYYY-MM-DD_HH-MM-SS.ext</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- FORMATS & TRIGGERS -->
+      <section aria-labelledby="formats-title">
+        <div class="section-header">
+          <div class="section-kicker">Formate &amp; Trigger</div>
+          <h2 id="formats-title" class="section-title">
+            Alles, was du im Browser siehst, wird speicherbar.
+          </h2>
+          <p class="section-sub">
+            Von JavaScript über YAML bis hin zu Versandlabels: InstaFile
+            erkennt typische Muster und speichert im passenden Format.
+          </p>
+        </div>
+        <div class="grid">
+          <div class="card">
+            <div class="card-title">Code &amp; Queries</div>
+            <p class="card-body">
+              Speichere Snippets aus Stack Overflow, Doku oder Logs als
+              ausführbare Dateien.
+            </p>
+            <div class="card-tag-row">
+              <span class="chip chip-primary">.js / .ts / .py / .sh</span>
+              <span class="chip">.sql</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Daten &amp; APIs</div>
+            <p class="card-body">
+              Analysiere API-Responses und Tabellen später weiter – ohne Copy
+              &amp; Paste.
+            </p>
+            <div class="card-tag-row">
+              <span class="chip chip-primary">.json / .yaml</span>
+              <span class="chip">.csv</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Notizen &amp; Doku</div>
+            <p class="card-body">
+              Sammle Text, Chat-Ausschnitte oder Markdown-Blöcke direkt als
+              Dateien.
+            </p>
+            <div class="card-tag-row">
+              <span class="chip chip-primary">.txt</span>
+              <span class="chip">.md</span>
+              <span class="chip">.html / .css</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">PDF &amp; Versandlabel</div>
+            <p class="card-body">
+              Erstelle vollwertige PDFs oder Label-PDFs (89 × 28&nbsp;mm)
+              direkt aus markierten Adressen.
+            </p>
+            <div class="card-tag-row">
+              <span class="chip chip-primary">PDF (Dokument)</span>
+              <span class="chip">PDF Label 89 × 28&nbsp;mm</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SCREENSHOTS & PRIVACY -->
+      <section aria-labelledby="screenshots-title">
+        <div class="section-header">
+          <div class="section-kicker">UI &amp; Datenschutz</div>
+          <h2 id="screenshots-title" class="section-title">
+            Sieht gut aus. Bleibt lokal.
+          </h2>
+          <p class="section-sub">
+            Alle Erkennungen, Dateinamen und Statistiken laufen ausschließlich
+            in deinem Browser. Keine Server, keine Log-Collection.
+          </p>
+        </div>
+
+        <div class="screenshots">
+          <div class="screenshots-main">
+            <!-- TODO: Ersetze Pfade durch deine Dateien, z. B. InstaFile_menu01_1280x800.png -->
+            <img
+              src="assets/InstaFile_menu01_1280x800.png"
+              alt="InstaFile Popup mit Schnellformaten"
+            />
+          </div>
+          <div class="screenshots-side">
+            <img
+              src="assets/InstaFile_menu03_1280x800.png"
+              alt="InstaFile Einstellungen & Statistiken"
+            />
+            <ul class="privacy-list">
+              <li>Verarbeitung von Inhalt ausschließlich lokal im Browser.</li>
+              <li>Keine Netzwerk-Requests an externe Services.</li>
+              <li>
+                Einstellungen via <code>chrome.storage.sync</code>,
+                Statistiken nur lokal (<code>chrome.storage.local</code>).
+              </li>
+              <li>Manifest V3, keine inline-eval oder Remote Scripts.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div>
+        © <span id="year"></span> InstaFile – Instant Document Creator.
+        Läuft auf Chrome &amp; Microsoft Edge (Manifest&nbsp;V3).
+      </div>
+      <div class="footer-links">
+        <a
+          href="https://github.com/DYAI2025/Instdoc/issues"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Feedback &amp; Issues
+        </a>
+        <a
+          href="https://github.com/DYAI2025/Instdoc"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Projekt auf GitHub
+        </a>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    // kleines Komfort-Detail: Jahr automatisch setzen, rein lokal
+    document.getElementById("year").textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>
