@@ -1,6 +1,6 @@
-# InstaFile Marketing Website
+# FlashDoc Marketing Website
 
-Professional marketing website for the InstaFile Chrome extension.
+Professional marketing website for the FlashDoc Chrome extension.
 
 ## 🚀 Quick Start
 
@@ -9,13 +9,13 @@ Simply open `index.html` in any modern browser. No build process required.
 ## 📁 Structure
 
 ```
-website-instaFile/
+website-flashdoc/
 ├── index.html          # Main landing page (single file)
 ├── assets/             # Images and screenshots
-│   ├── instafile_dyai_1280x800.png
-│   ├── InstaFile_menu01_1280x800.png
-│   ├── InstaFile_menu02_1280x800.png
-│   └── InstaFile_menu03_1280x800.png
+│   ├── FlashDoc_dyai_1280x800.png
+│   ├── FlashDoc_menu01_1280x800.png
+│   ├── FlashDoc_menu02_1280x800.png
+│   └── FlashDoc_menu03_1280x800.png
 └── README.md           # This file
 ```
 
@@ -35,8 +35,8 @@ website-instaFile/
 Replace `EXTENSION_ID` in the following lines with your actual Chrome Web Store extension ID:
 
 ```html
-<!-- Line ~486 and ~526 -->
-href="https://chrome.google.com/webstore/detail/instafile/EXTENSION_ID"
+  <!-- Line ~486 and ~526 -->
+  href="https://chrome.google.com/webstore/detail/flashdoc/EXTENSION_ID"
 ```
 
 ### Change Colors
@@ -100,14 +100,14 @@ vercel
 
 ## 📄 License
 
-This website template is part of the InstaFile project.
+This website template is part of the FlashDoc project.
 
 ## 🔗 Links
 
-- [InstaFile Extension](https://chrome.google.com/webstore/detail/instafile/EXTENSION_ID)
-- [GitHub Repository](https://github.com/DYAI2025/Instdoc)
-- [Report Issues](https://github.com/DYAI2025/Instdoc/issues)
+- [FlashDoc Extension](https://chrome.google.com/webstore/detail/flashdoc/EXTENSION_ID)
+- [GitHub Repository](https://github.com/DYAI2025/FlashDoc)
+- [Report Issues](https://github.com/DYAI2025/FlashDoc/issues)
 
 ---
 
-Built with ⚡ for InstaFile
+Built with ⚡ for FlashDoc

@@ -1,6 +1,6 @@
 Artifacts:
 
-instafile-landing/index.html (siehe oben).
+flashdoc-landing/index.html (siehe oben).
 
 DoD:
 
@@ -47,7 +47,7 @@ TS-1 – Inhalt & Message
 
 Typ: Manuell, Explorativ
 
-Schritte: 3 Testpersonen, die InstaFile noch nicht kennen, 5 Sekunden auf die Seite schauen lassen. Danach die Frage: „Was macht das Tool?“
+Schritte: 3 Testpersonen, die FlashDoc noch nicht kennen, 5 Sekunden auf die Seite schauen lassen. Danach die Frage: „Was macht das Tool?“
 
 Erwartung: Mindestens 2 von 3 beschreiben sinngemäß „markierten Text in Dateien speichern“ (SC-1).
 
