@@ -3,12 +3,15 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="google-adsense-account" content="ca-pub-1712273263687132">
   <title>FlashDoc – Instant Document Creator | Chrome & Edge Extension</title>
   <meta name="description" content="Transform selected text into files instantly. FlashDoc is a Chrome/Edge extension with smart format detection for code, JSON, YAML, CSV, PDFs, and labels. 100% local processing, no cloud." />
   <meta name="keywords" content="chrome extension, text to file, developer tools, code snippets, instant save, browser extension, productivity" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1712273263687132"
+    crossorigin="anonymous"></script>
   <style>
     :root {
       /* Color System */
@@ -543,6 +546,58 @@
       color: var(--accent-purple);
     }
 
+    /* Marketing Spotlight */
+    .marketing-section {
+      margin: 80px 0;
+      background: radial-gradient(circle at 20% 30%, rgba(92, 92, 255, 0.1), rgba(5, 9, 25, 0.4));
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-xl);
+      padding: 48px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 32px;
+      align-items: center;
+      box-shadow: var(--shadow-soft);
+    }
+
+    .marketing-copy h2 {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.9rem;
+      margin-bottom: 12px;
+    }
+
+    .marketing-copy p {
+      color: var(--text-muted);
+      margin-bottom: 18px;
+      line-height: 1.7;
+    }
+
+    .marketing-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .marketing-pills .chip {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .marketing-image {
+      background: rgba(26, 31, 58, 0.5);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-medium);
+      padding: 12px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+    }
+
+    .marketing-image img {
+      border-radius: var(--radius-md);
+      width: 100%;
+      height: auto;
+    }
+
     /* Screenshots */
     .screenshots {
       display: grid;
@@ -806,6 +861,39 @@
             </div>
             <span class="hero-fab-pill">Smart Save</span>
           </div>
+        </div>
+      </section>
+
+      <!-- MARKETING GRAPHIC -->
+      <section class="marketing-section" aria-labelledby="marketing-graphic-title">
+        <div class="marketing-copy">
+          <div class="section-kicker">Marketinggrafik</div>
+          <h2 id="marketing-graphic-title">
+            Mehr Fokus &amp; Flow durch FlashDocs blitzschneller Dokument-Erzeugung.
+          </h2>
+          <p>
+            Die neue Kampagnen-Grafik zeigt, wie der schwebende Button sofort das passende Format vorschlägt
+            und du mit einem Klick weiterarbeiten kannst. Nutze sie, um den Vorteil von FlashDoc direkt zu
+            visualisieren – ohne Tab-Wechsel, ohne Speichern-Dialoge.
+          </p>
+          <div class="marketing-pills">
+            <span class="chip chip-primary">Schnell speichern</span>
+            <span class="chip">Format-Autodetect</span>
+            <span class="chip">Label-PDF 89×28</span>
+            <span class="chip">Lokale Verarbeitung</span>
+          </div>
+          <div class="hero-cta-row" style="gap: 12px;">
+            <a class="btn btn-primary" href="https://chrome.google.com/webstore/detail/flashdoc/EXTENSION_ID" target="_blank" rel="noopener noreferrer">
+              <span class="icon">⚡</span>
+              <span>Jetzt ausprobieren</span>
+            </a>
+            <a class="btn btn-secondary" href="https://FlashDoc.machinetool.site" target="_blank" rel="noopener noreferrer">
+              <span>Mehr über FlashDoc</span>
+            </a>
+          </div>
+        </div>
+        <div class="marketing-image">
+          <img src="assets/FlashDoc_marketing_graphic.svg" alt="Marketinggrafik von FlashDoc mit Floating-Button und Formatvorschlägen" />
         </div>
       </section>
 
