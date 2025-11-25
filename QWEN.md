@@ -1,10 +1,10 @@
-# InstaFile Marketing Website - Development Context
+# FlashDoc Marketing Website - Development Context
 
 ## Project Overview
 
-The InstaFile Marketing Website is a single-page HTML application created to promote the InstaFile Chrome extension. It's a professional marketing website that showcases the extension's features, explains how it works, and provides clear calls-to-action for installation and GitHub access.
+The FlashDoc Marketing Website is a single-page HTML application created to promote the FlashDoc Chrome extension. It's a professional marketing website that showcases the extension's features, explains how it works, and provides clear calls-to-action for installation and GitHub access.
 
-**Project Purpose**: To market the InstaFile Chrome/Edge extension that allows users to instantly save selected text as files in various formats directly from their browser.
+**Project Purpose**: To market the FlashDoc Chrome/Edge extension that allows users to instantly save selected text as files in various formats directly from their browser.
 
 **Main Technologies**:
 - Pure HTML5
@@ -32,20 +32,20 @@ website-instaFile/
 ├── index.html          # Main landing page (single file solution)
 ├── README.md           # Project documentation and setup guide
 ├── assets/             # Image assets and screenshots
-│   ├── instafile_dyai_1280x800.png
-│   ├── InstaFile_menu01_1280x800.png
-│   ├── InstaFile_menu02_1280x800.png
-│   ├── InstaFile_menu03_1280x800.png
-│   ├── InstaFile_real_fotoage01.png
-│   ├── InstaFile_real_fotoage02.png
-│   ├── InstaFile_resized.png
+│   ├── FlashDoc_dyai_1280x800.png
+│   ├── FlashDoc_menu01_1280x800.png
+│   ├── FlashDoc_menu02_1280x800.png
+│   ├── FlashDoc_menu03_1280x800.png
+│   ├── FlashDoc_real_fotoage01.png
+│   ├── FlashDoc_real_fotoage02.png
+│   ├── FlashDoc_resized.png
 │   └── Bildschirmfoto vom 2025-11-24 12-44-24.png
 ├── brainstorm_ergebnis (1).md  # Brainstorming and planning document
 ├── artifacts_.md       # Implementation artifacts and testing guide
 ├── doctype_index.html  # Alternative index file?
-├── InstaFiles.zip      # Compressed version of the project
-├── Instdoc-main.zip    # Project archive?
-├── InstFiles.zip       # Another compressed archive?
+├── FlashDocFiles.zip   # Compressed version of the project
+├── FlashDocFiles_alt.zip   # Alternate compressed archive
+├── FlashDoc-main.zip   # Project archive?
 └── .git/               # Git repository
 ```
 
@@ -119,6 +119,6 @@ The design follows a dark theme with purple/violet and yellow accents, creating 
 
 ## Notes
 
-- The project exists in multiple compressed formats (InstaFiles.zip, Instdoc-main.zip, InstFiles.zip) suggesting different versions or deployments
+- The project exists in multiple compressed formats (FlashDocFiles.zip, FlashDocFiles_alt.zip, FlashDoc-main.zip) suggesting different versions or deployments
 - Two additional HTML files exist: `doctype_index.html` and the main `index.html` 
 - The `brainstorm_ergebnis(1).md` and `artifacts_.md` files contain the original planning and implementation guide for this website

@@ -6,7 +6,7 @@ Markierten Text zu speichern kostet Zeit (Copy & Paste, Dateiname ausdenken, Ord
 
 Ziel der Landingpage
 
-InstaFile kurz & klar erklären („Markieren → Speichern → Fertig“).
+FlashDoc kurz & klar erklären („Markieren → Speichern → Fertig“).
 
 Vertrauenswürdigkeit & Lokalität hervorheben (keine Cloud, keine Telemetrie).
 
@@ -26,7 +26,7 @@ Hero-Section mit Logo, Tagline, CTA-Buttons.
 
 Sektionen: „So funktioniert’s“, „Formate & Anwendungsfälle“, „Screenshots“, „Datenschutz“.
 
-Verlinkungen: Chrome Web Store (Platzhalter-URL), GitHub-Repo DYAI2025/Instdoc.
+Verlinkungen: Chrome Web Store (Platzhalter-URL), GitHub-Repo DYAI2025/FlashDoc.
 
 Out-of-Scope
 
@@ -48,13 +48,13 @@ Funktionale Anforderungen (FR)
 Logisch scheint mir, dass folgende FRs reichen:
 
 FR-1 (H)
-Die Seite zeigt im Hero-Bereich: InstaFile-Logo, Claim, kurze Erklärung und einen primären CTA-Button „Zu Chrome hinzufügen“ (Link zum Chrome Web Store).
+Die Seite zeigt im Hero-Bereich: FlashDoc-Logo, Claim, kurze Erklärung und einen primären CTA-Button „Zu Chrome hinzufügen“ (Link zum Chrome Web Store).
 
 FR-2 (H)
-Ein zweiter CTA-Button verlinkt auf das GitHub-Repo https://github.com/DYAI2025/Instdoc.
+Ein zweiter CTA-Button verlinkt auf das GitHub-Repo https://github.com/DYAI2025/FlashDoc.
 
 FR-3 (M)
-Sektion „So funktioniert’s“ erklärt in 3 klaren Schritten den Flow: Text markieren → InstaFile auslösen → Datei im Download-Ordner.
+Sektion „So funktioniert’s“ erklärt in 3 klaren Schritten den Flow: Text markieren → FlashDoc auslösen → Datei im Download-Ordner.
 
 FR-4 (H)
 Sektion „Formate & Trigger“ listet unterstützte Dateitypen (Text, Code, Daten, Dokumente, Label) und Erfassungswege (Kontextmenü, Shortcuts, Floating-Button, Auswahl-Button).
@@ -63,7 +63,7 @@ FR-5 (M)
 Sektion „100 % lokal & sicher“ beschreibt, dass keine Daten den Rechner verlassen und welche Permissions/Infrastruktur genutzt werden (kurz).
 
 FR-6 (M)
-Screenshot-Galerie zeigt mindestens 2–3 deiner mitgelieferten InstaFile-Bilder.
+Screenshot-Galerie zeigt mindestens 2–3 deiner mitgelieferten FlashDoc-Bilder.
 
 FR-7 (M)
 Footer mit Hinweis auf Manifest V3, Browser-Kompatibilität (Chrome/Edge) und Link zur GitHub-Issues-Seite für Feedback.
@@ -83,7 +83,7 @@ Bilder sind als separate Dateien referenziert und können leicht ausgetauscht we
 
 Success Criteria (SC)
 SC-1 (H)
-Testperson versteht innerhalb von 5 Sekunden, dass InstaFile markierten Text mit einem Klick als Datei speichert (Hero-Claim + Subline).
+Testperson versteht innerhalb von 5 Sekunden, dass FlashDoc markierten Text mit einem Klick als Datei speichert (Hero-Claim + Subline).
 
 SC-2 (H)
 Chrome-Web-Store-CTA ist „above the fold“ sichtbar und eindeutig als Primärhandlungsaufforderung erkennbar.
@@ -98,9 +98,9 @@ Implementierungsplan für AI-Agent
 A) Kontext
 Faktisch korrekt sage ich:
 
-Title: Landingpage „InstaFile – Instant Document Creator“
+Title: Landingpage „FlashDoc – Instant Document Creator“
 
-Kurzbeschreibung: Eine minimalistische, dunkle One-Pager-Landingpage, die die Browser-Extension InstaFile erklärt und einen klaren CTA zum Chrome Web Store bietet.
+Kurzbeschreibung: Eine minimalistische, dunkle One-Pager-Landingpage, die die Browser-Extension FlashDoc erklärt und einen klaren CTA zum Chrome Web Store bietet.
 
 Scope / Non-Scope siehe oben.
 
@@ -140,13 +140,13 @@ ID: T1
 Title: Basisdatei & Ordnerstruktur anlegen
 
 Description:
-Lege einen Ordner instafile-landing/ an, darin index.html und einen Unterordner assets/ für Bilder. Kopiere die bereitgestellten Logo-/Screenshot-Dateien in assets/.
+Lege einen Ordner flashdoc-landing/ an, darin index.html und einen Unterordner assets/ für Bilder. Kopiere die bereitgestellten Logo-/Screenshot-Dateien in assets/.
 
 Artifacts:
 
-instafile-landing/index.html
+flashdoc-landing/index.html
 
-instafile-landing/assets/*.png
+flashdoc-landing/assets/*.png
 
 DoD:
 

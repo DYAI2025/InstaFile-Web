@@ -12,10 +12,10 @@ Simply open `index.html` in any modern browser. No build process required.
 website-flashdoc/
 ├── index.html          # Main landing page (single file)
 ├── assets/             # Images and screenshots
-│   ├── instafile_dyai_1280x800.png
-│   ├── InstaFile_menu01_1280x800.png
-│   ├── InstaFile_menu02_1280x800.png
-│   └── InstaFile_menu03_1280x800.png
+│   ├── FlashDoc_dyai_1280x800.png
+│   ├── FlashDoc_menu01_1280x800.png
+│   ├── FlashDoc_menu02_1280x800.png
+│   └── FlashDoc_menu03_1280x800.png
 └── README.md           # This file
 ```
 
@@ -105,8 +105,8 @@ This website template is part of the FlashDoc project.
 ## 🔗 Links
 
 - [FlashDoc Extension](https://chrome.google.com/webstore/detail/flashdoc/EXTENSION_ID)
-- [GitHub Repository](https://github.com/DYAI2025/Instdoc)
-- [Report Issues](https://github.com/DYAI2025/Instdoc/issues)
+- [GitHub Repository](https://github.com/DYAI2025/FlashDoc)
+- [Report Issues](https://github.com/DYAI2025/FlashDoc/issues)
 
 ---
 
