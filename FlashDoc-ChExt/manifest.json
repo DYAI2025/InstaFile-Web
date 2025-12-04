@@ -1,0 +1,75 @@
+{
+  "manifest_version": 3,
+  "name": "InstaFile - Instant Document Creator",
+  "version": "2.0.0",
+  "description": "⚡ Select → Save → Done. Instant file creation from any text. PDF, Markdown, Code, YAML - all formats, zero friction.",
+  "permissions": [
+    "contextMenus",
+    "downloads",
+    "storage",
+    "notifications",
+    "scripting",
+    "activeTab",
+    "tabs"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "service-worker.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ],
+  "options_page": "options.html",
+  "commands": {
+    "save-smart": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+S",
+        "mac": "Command+Shift+S"
+      },
+      "description": "Smart save (auto-detect format)"
+    },
+    "save-txt": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+T",
+        "mac": "Command+Shift+T"
+      },
+      "description": "Save as .txt"
+    },
+    "save-md": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+M",
+        "mac": "Command+Shift+M"
+      },
+      "description": "Save as .md"
+    },
+    "save-pdf": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+P",
+        "mac": "Command+Shift+P"
+      },
+      "description": "Save as PDF"
+    }
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "author": "Benjamin Poersch",
+  "homepage_url": "https://github.com/benjiyo/instafile"
+}

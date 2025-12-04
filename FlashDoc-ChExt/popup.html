@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    FlashDoc -
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <>Saves docs while you focus flow</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="container">
+      <!-- Animated Header -->
+      <header class="header">
+        <div class="logo-container">
+          <div class="logo-icon">⚡</div>
+          <div class="logo-text">
+            <h1>FlashDoc</h1>
+            <p class="tagline">Select → Save → Done</p>
+          </div>
+        </div>
+        <div class="status-indicator">
+          <span class="status-dot"></span>
+          <span class="status-text">Ready</span>
+        </div>
+      </header>
+
+      <!-- Live Stats Dashboard -->
+      <section class="stats-dashboard">
+        <div class="stat-card primary">
+          <div class="stat-icon">📊</div>
+          <div class="stat-content">
+            <span class="stat-value" id="total-files">0</span>
+            <span class="stat-label">Total Files</span>
+          </div>
+        </div>
+        <div class="stat-card secondary">
+          <div class="stat-icon">📁</div>
+          <div class="stat-content">
+            <span class="stat-value" id="today-files">0</span>
+            <span class="stat-label">Today</span>
+          </div>
+        </div>
+        <div class="stat-card accent">
+          <div class="stat-icon">⏱️</div>
+          <div class="stat-content">
+            <span class="stat-value" id="last-saved">Never</span>
+            <span class="stat-label">Last Save</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Quick Actions Grid -->
+      <section class="quick-actions">
+        <h2 class="section-title">Quick Save</h2>
+        <div class="actions-grid">
+          <button class="action-card" data-action="smart">
+            <span class="action-icon">🎯</span>
+            <span class="action-name">Smart</span>
+            <span class="action-desc">Auto-detect</span>
+          </button>
+          <button class="action-card" data-action="txt">
+            <span class="action-icon">📄</span>
+            <span class="action-name">Text</span>
+            <span class="action-desc">.txt file</span>
+          </button>
+          <button class="action-card" data-action="md">
+            <span class="action-icon">📝</span>
+            <span class="action-name">Markdown</span>
+            <span class="action-desc">.md file</span>
+          </button>
+          <button class="action-card" data-action="pdf">
+            <span class="action-icon">📕</span>
+            <span class="action-name">PDF</span>
+            <span class="action-desc">Document</span>
+          </button>
+          <button class="action-card" data-action="code">
+            <span class="action-icon">👨‍💻</span>
+            <span class="action-name">Code</span>
+            <span class="action-desc">Auto-detect</span>
+          </button>
+          <button class="action-card" data-action="data">
+            <span class="action-icon">📊</span>
+            <span class="action-name">Data</span>
+            <span class="action-desc">CSV/JSON</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Recent Files -->
+      <section class="recent-files">
+        <h2 class="section-title">Recent Files</h2>
+        <div class="recent-list" id="recent-list">
+          <div class="empty-state">
+            <span class="empty-icon">📂</span>
+            <p>No recent files yet</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Keyboard Shortcuts -->
+      <section class="shortcuts">
+        <h2 class="section-title">Shortcuts</h2>
+        <div class="shortcut-list">
+          <div class="shortcut">
+            <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd>
+            <span>Smart Save</span>
+          </div>
+          <div class="shortcut">
+            <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd>
+            <span>Save as Text</span>
+          </div>
+          <div class="shortcut">
+            <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd>
+            <span>Save as Markdown</span>
+          </div>
+          <div class="shortcut">
+            <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>
+            <span>Save as PDF</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Footer Actions -->
+      <footer class="footer">
+        <button class="footer-btn" id="open-folder">
+          <span>📁</span>
+          <span>Open Folder</span>
+        </button>
+        <button class="footer-btn" id="settings">
+          <span>⚙️</span>
+          <span>Settings</span>
+        </button>
+        <button class="footer-btn" id="help">
+          <span>❓</span>
+          <span>Help</span>
+        </button>
+      </footer>
+    </div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

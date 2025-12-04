@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>InstaFile Test Page - Test All Features</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #667eea;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f7f7f7;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        .test-section h2 {
+            color: #764ba2;
+            margin-top: 0;
+        }
+        pre {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+        }
+        .instructions {
+            background: #edf2ae;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .shortcut {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>⚡ InstaFile Test Page</h1>
+        
+        <div class="instructions">
+            <h3>🎯 How to Test:</h3>
+            <ol>
+                <li>Select any text block below</li>
+                <li>Press <span class="shortcut">Ctrl+Shift+S</span> for Smart Save</li>
+                <li>Or right-click → InstaFile → Choose format</li>
+                <li>Watch InstaFile auto-detect the format!</li>
+            </ol>
+        </div>
+
+        <!-- Python Code Test -->
+        <div class="test-section">
+            <h2>🐍 Python Code (Auto-detects as .py)</h2>
+            <p>Select this Python code and save:</p>
+            <pre>
+def calculate_fibonacci(n):
+    """Calculate Fibonacci sequence up to n terms"""
+    if n <= 0:
+        return []
+    elif n == 1:
+        return [0]
+    elif n == 2:
+        return [0, 1]
+    
+    fib_sequence = [0, 1]
+    for i in range(2, n):
+        next_num = fib_sequence[-1] + fib_sequence[-2]
+        fib_sequence.append(next_num)
+    
+    return fib_sequence
+
+if __name__ == "__main__":
+    result = calculate_fibonacci(10)
+    print(f"Fibonacci sequence: {result}")
+            </pre>
+        </div>
+
+        <!-- JavaScript Code Test -->
+        <div class="test-section">
+            <h2>📦 JavaScript Code (Auto-detects as .js)</h2>
+            <p>Select this JavaScript code:</p>
+            <pre>
+const quickSort = (arr) => {
+    if (arr.length <= 1) return arr;
+    
+    const pivot = arr[Math.floor(arr.length / 2)];
+    const left = arr.filter(x => x < pivot);
+    const middle = arr.filter(x => x === pivot);
+    const right = arr.filter(x => x > pivot);
+    
+    return [...quickSort(left), ...middle, ...quickSort(right)];
+};
+
+// Test the function
+const numbers = [3, 1, 4, 1, 5, 9, 2, 6, 5];
+console.log('Sorted:', quickSort(numbers));
+            </pre>
+        </div>
+
+        <!-- Markdown Test -->
+        <div class="test-section">
+            <h2>📝 Markdown Text (Auto-detects as .md)</h2>
+            <p>Select this Markdown content:</p>
+            <pre>
+# InstaFile Features
+
+## Core Functionality
+- **Smart Detection** - Automatically identifies file types
+- **Zero Friction** - Select and save instantly
+- **Multiple Formats** - Support for 10+ file types
+
+### Installation Steps
+1. Download the extension
+2. Load in Chrome
+3. Start saving!
+
+> "The fastest way to save text from the web" - Every User
+
+[Visit GitHub](https://github.com/instafile) for more info.
+
+`Code snippets` are also **perfectly** formatted.
+            </pre>
+        </div>
+
+        <!-- JSON Test -->
+        <div class="test-section">
+            <h2>📋 JSON Data (Auto-detects as .json)</h2>
+            <p>Select this JSON data:</p>
+            <pre>
+{
+  "name": "InstaFile",
+  "version": "2.0.0",
+  "description": "Zero-friction file creation",
+  "features": [
+    "Smart format detection",
+    "Keyboard shortcuts",
+    "PDF generation",
+    "Real-time statistics"
+  ],
+  "author": {
+    "name": "Benjamin Poersch",
+    "role": "Visionary Developer"
+  },
+  "stats": {
+    "formats_supported": 12,
+    "average_save_time": "< 1 second",
+    "user_satisfaction": "100%"
+  }
+}
+            </pre>
+        </div>
+
+        <!-- YAML Test -->
+        <div class="test-section">
+            <h2>⚙️ YAML Configuration (Auto-detects as .yaml)</h2>
+            <p>Select this YAML content:</p>
+            <pre>
+name: InstaFile
+version: 2.0.0
+description: Zero-friction file creation from browser
+
+features:
+  - smart_detection: true
+    description: Automatically identifies file types
+  - keyboard_shortcuts:
+      - ctrl_shift_s: Smart Save
+      - ctrl_shift_t: Save as Text
+      - ctrl_shift_m: Save as Markdown
+  - formats:
+      text: [txt, md]
+      code: [py, js, html, css]
+      data: [json, yaml, csv]
+      
+settings:
+  save_folder: InstaFiles/
+  auto_detect: true
+  show_notifications: true
+            </pre>
+        </div>
+
+        <!-- CSV Test -->
+        <div class="test-section">
+            <h2>📊 CSV Data (Auto-detects as .csv)</h2>
+            <p>Select this CSV data:</p>
+            <pre>
+Name,Format,Detection,Speed,Rating
+InstaFile Text,txt,Manual,Instant,5
+Smart Python,py,Automatic,< 1s,5
+JavaScript Files,js,Automatic,< 1s,5
+Markdown Docs,md,Automatic,< 1s,5
+PDF Generation,pdf,Manual,< 2s,5
+JSON Data,json,Automatic,< 1s,5
+YAML Config,yaml,Automatic,< 1s,5
+            </pre>
+        </div>
+
+        <!-- Plain Text Test -->
+        <div class="test-section">
+            <h2>📄 Plain Text (Saves as .txt)</h2>
+            <p>Select this text:</p>
+            <pre>
+This is plain text that will be saved as a .txt file.
+InstaFile makes it incredibly easy to save any content from the web.
+Just select, press Ctrl+Shift+S, and it's saved!
+
+No dialogs, no clicking through menus, no friction.
+It's the way file saving should have always been.
+            </pre>
+        </div>
+
+        <!-- HTML Test -->
+        <div class="test-section">
+            <h2>🌐 HTML Code (Auto-detects as .html)</h2>
+            <p>Select this HTML:</p>
+            <pre>
+&lt;!DOCTYPE html&gt;
+&lt;html lang="en"&gt;
+&lt;head&gt;
+    &lt;meta charset="UTF-8"&gt;
+    &lt;title&gt;InstaFile Demo&lt;/title&gt;
+    &lt;style&gt;
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 50px;
+        }
+    &lt;/style&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    &lt;h1&gt;Welcome to InstaFile&lt;/h1&gt;
+    &lt;p&gt;The fastest way to save web content&lt;/p&gt;
+&lt;/body&gt;
+&lt;/html&gt;
+            </pre>
+        </div>
+
+        <!-- Mixed Content Test -->
+        <div class="test-section">
+            <h2>🎯 Test Smart Detection</h2>
+            <p>Try selecting different parts of this mixed content:</p>
+            <div style="background: white; padding: 15px; border-radius: 6px; color: #333;">
+                <p><strong>Shopping List:</strong> Milk, Eggs, Bread, Coffee</p>
+                <p><strong>Todo:</strong> [ ] Review code, [ ] Write docs, [ ] Test features</p>
+                <p><strong>URL:</strong> https://github.com/instafile/extension</p>
+                <p><strong>Email:</strong> support@instafile.dev</p>
+                <p><strong>Phone:</strong> +1-234-567-8900</p>
+                <p><strong>Date:</strong> 2024-01-15</p>
+            </div>
+        </div>
+
+        <!-- Success Message -->
+        <div style="margin-top: 40px; padding: 20px; background: #48bb78; color: white; border-radius: 8px; text-align: center;">
+            <h2 style="color: white; margin-top: 0;">✅ Extension Working!</h2>
+            <p>If you can save these test blocks, InstaFile is properly installed and functioning.</p>
+            <p><strong>Tip:</strong> Check your Downloads/InstaFiles folder for saved files!</p>
+        </div>
+    </div>
+
+    <script>
+        // Log successful load
+        console.log('⚡ InstaFile Test Page Loaded Successfully!');
+        console.log('Select any text block and press Ctrl+Shift+S to test smart save.');
+        
+        // Add visual feedback on selection
+        document.addEventListener('selectionchange', () => {
+            const selection = window.getSelection();
+            if (selection.toString().trim().length > 0) {
+                console.log(`📝 Selected ${selection.toString().length} characters - Ready to save!`);
+            }
+        });
+    </script>
+</body>
+</html>
