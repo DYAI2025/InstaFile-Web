@@ -402,6 +402,96 @@ body {
   line-height: 1.5;
 }
 
+/* F2: Prefix Management Styles */
+.prefix-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.prefix-count {
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.prefix-count.at-limit {
+  color: var(--danger);
+}
+
+.btn.small {
+  padding: 8px 14px;
+  font-size: 13px;
+  border-radius: 8px;
+}
+
+.prefix-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.prefix-list .empty-state {
+  text-align: center;
+  padding: 24px;
+  color: var(--muted);
+}
+
+.prefix-list .empty-icon {
+  font-size: 32px;
+  display: block;
+  margin-bottom: 8px;
+}
+
+.prefix-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: rgba(148, 163, 184, 0.08);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  transition: all 0.2s ease;
+}
+
+.prefix-item:hover {
+  border-color: rgba(56, 189, 248, 0.4);
+  background: rgba(56, 189, 248, 0.05);
+}
+
+.prefix-name {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.prefix-name:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+}
+
+.prefix-delete {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s ease;
+}
+
+.prefix-delete:hover {
+  background: rgba(239, 68, 68, 0.2);
+  transform: scale(1.05);
+}
+
 @media (max-width: 720px) {
   body {
     padding: 24px 12px;

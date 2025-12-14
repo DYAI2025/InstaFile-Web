@@ -5,6 +5,7 @@ const CONTEXT_MENU_ITEMS = [
   { id: 'auto', title: '\u26A1 Auto-detect & Save' },
   { id: 'txt', title: '\uD83D\uDCC4 Save as .txt' },
   { id: 'md', title: '\uD83D\uDCDD Save as .md' },
+  { id: 'docx', title: '\uD83D\uDCDC Save as .docx' },
   { id: 'json', title: '\uD83D\uDCCB Save as .json' },
   { id: 'js', title: '\uD83D\uDFE8 Save as .js' },
   { id: 'ts', title: '\uD83D\uDD35 Save as .ts' },
@@ -63,6 +64,7 @@ class FlashDoc {
       autoDetectType: true,
       enableContextMenu: true,
       showFloatingButton: true,
+      showCornerBall: true, // F3: Corner ball visibility
       buttonPosition: 'bottom-right',
       autoHideButton: true,
       selectionThreshold: 10,
@@ -70,7 +72,10 @@ class FlashDoc {
       trackFormatUsage: true,
       trackDetectionAccuracy: true,
       showFormatRecommendations: true,
-      contextMenuFormats: DEFAULT_CONTEXT_MENU_FORMATS
+      contextMenuFormats: DEFAULT_CONTEXT_MENU_FORMATS,
+      // F2: File prefix system
+      filePrefixes: [], // Array of {id, name} objects, max 5
+      prefixUsage: {} // {prefixId: count} for smart sorting
     };
 
     const stored = await chrome.storage.sync.get(null);
@@ -309,13 +314,14 @@ class FlashDoc {
     }
   }
 
-  generateFilename(content, extension, tab) {
+  generateFilename(content, extension, tab, prefix = null) {
     const fileExtension = extension === 'label' ? 'pdf' : extension;
     const timestamp = new Date().toISOString()
       .replace(/[:.]/g, '-')
       .replace('T', '_')
       .slice(0, -5);
 
+    let baseName;
     switch (this.settings.namingPattern) {
       case 'firstline': {
         const firstLine = content.split('\n')[0]
@@ -324,23 +330,64 @@ class FlashDoc {
           .replace(/_+/g, '_')
           .toLowerCase()
           .trim();
-        
-        return firstLine && firstLine.length > 3
-          ? `${firstLine}.${fileExtension}`
-          : `flashdoc_${timestamp}.${fileExtension}`;
+
+        baseName = firstLine && firstLine.length > 3
+          ? firstLine
+          : `flashdoc_${timestamp}`;
+        break;
       }
 
       case 'custom': {
-        const pattern = this.settings.customPattern
+        baseName = this.settings.customPattern
           .replace('{date}', timestamp.split('_')[0])
           .replace('{time}', timestamp.split('_')[1])
           .replace('{type}', extension);
-        return `${pattern}.${fileExtension}`;
+        break;
       }
 
       case 'timestamp':
       default:
-        return `flashdoc_${timestamp}.${fileExtension}`;
+        baseName = `flashdoc_${timestamp}`;
+    }
+
+    // F2: Apply prefix if provided
+    if (prefix && prefix.trim()) {
+      const sanitizedPrefix = prefix.trim().replace(/[^a-z0-9_-]/gi, '_');
+      baseName = `${sanitizedPrefix}_${baseName}`;
+    }
+
+    return `${baseName}.${fileExtension}`;
+  }
+
+  // F2: Track prefix usage for smart sorting
+  async trackPrefixUsage(prefixId) {
+    if (!prefixId) return;
+    try {
+      const stored = await chrome.storage.local.get(['prefixUsage']);
+      const prefixUsage = stored.prefixUsage || {};
+      prefixUsage[prefixId] = (prefixUsage[prefixId] || 0) + 1;
+      await chrome.storage.local.set({ prefixUsage });
+    } catch (error) {
+      console.error('Failed to track prefix usage:', error);
+    }
+  }
+
+  // F2: Get prefixes sorted by usage frequency
+  async getSortedPrefixes() {
+    const prefixes = this.settings.filePrefixes || [];
+    if (prefixes.length === 0) return [];
+
+    try {
+      const stored = await chrome.storage.local.get(['prefixUsage']);
+      const usage = stored.prefixUsage || {};
+
+      return [...prefixes].sort((a, b) => {
+        const usageA = usage[a.id] || 0;
+        const usageB = usage[b.id] || 0;
+        return usageB - usageA; // Descending by usage
+      });
+    } catch (error) {
+      return prefixes;
     }
   }
 
@@ -348,6 +395,11 @@ class FlashDoc {
     if (extension === 'pdf') {
       const pdfBlob = this.createPdfBlob(content);
       return { blob: pdfBlob, mimeType: 'application/pdf' };
+    }
+
+    if (extension === 'docx') {
+      const docxBlob = this.createDocxBlob(content);
+      return { blob: docxBlob, mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' };
     }
 
     const mimeTypes = {
@@ -586,6 +638,160 @@ class FlashDoc {
     push('%%EOF\n');
 
     return new Blob(chunks, { type: 'application/pdf' });
+  }
+
+  createDocxBlob(content) {
+    // DOCX is a ZIP archive containing XML files
+    // This creates a minimal valid DOCX document
+
+    const escapeXml = (text) => text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+
+    // Convert content to paragraphs
+    const paragraphs = content
+      .replace(/\r\n/g, '\n')
+      .split('\n')
+      .map(line => `<w:p><w:r><w:t>${escapeXml(line) || ' '}</w:t></w:r></w:p>`)
+      .join('');
+
+    // XML files that make up a DOCX
+    const files = {
+      '[Content_Types].xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`,
+
+      '_rels/.rels': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`,
+
+      'word/_rels/document.xml.rels': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+</Relationships>`,
+
+      'word/document.xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    ${paragraphs}
+    <w:sectPr>
+      <w:pgSz w:w="12240" w:h="15840"/>
+      <w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/>
+    </w:sectPr>
+  </w:body>
+</w:document>`
+    };
+
+    // Build ZIP archive (STORE method - no compression)
+    const encoder = new TextEncoder();
+    const chunks = [];
+    const centralDirectory = [];
+    let offset = 0;
+
+    const crc32 = (data) => {
+      let crc = 0xFFFFFFFF;
+      const table = [];
+      for (let i = 0; i < 256; i++) {
+        let c = i;
+        for (let j = 0; j < 8; j++) {
+          c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+        }
+        table[i] = c;
+      }
+      for (let i = 0; i < data.length; i++) {
+        crc = table[(crc ^ data[i]) & 0xFF] ^ (crc >>> 8);
+      }
+      return (crc ^ 0xFFFFFFFF) >>> 0;
+    };
+
+    const writeUint16 = (value) => new Uint8Array([value & 0xFF, (value >> 8) & 0xFF]);
+    const writeUint32 = (value) => new Uint8Array([value & 0xFF, (value >> 8) & 0xFF, (value >> 16) & 0xFF, (value >> 24) & 0xFF]);
+
+    for (const [filename, content] of Object.entries(files)) {
+      const filenameBytes = encoder.encode(filename);
+      const contentBytes = encoder.encode(content);
+      const crc = crc32(contentBytes);
+
+      // Local file header
+      const localHeader = new Uint8Array([
+        0x50, 0x4B, 0x03, 0x04, // Signature
+        0x0A, 0x00,             // Version needed (1.0)
+        0x00, 0x00,             // General purpose flags
+        0x00, 0x00,             // Compression method (STORE)
+        0x00, 0x00,             // Last mod time
+        0x00, 0x00,             // Last mod date
+        ...writeUint32(crc),
+        ...writeUint32(contentBytes.length),  // Compressed size
+        ...writeUint32(contentBytes.length),  // Uncompressed size
+        ...writeUint16(filenameBytes.length),
+        0x00, 0x00              // Extra field length
+      ]);
+
+      chunks.push(localHeader);
+      chunks.push(filenameBytes);
+      chunks.push(contentBytes);
+
+      // Store info for central directory
+      centralDirectory.push({
+        filename: filenameBytes,
+        crc,
+        size: contentBytes.length,
+        offset
+      });
+
+      offset += localHeader.length + filenameBytes.length + contentBytes.length;
+    }
+
+    // Central directory
+    const centralStart = offset;
+    for (const entry of centralDirectory) {
+      const centralHeader = new Uint8Array([
+        0x50, 0x4B, 0x01, 0x02, // Signature
+        0x14, 0x00,             // Version made by
+        0x0A, 0x00,             // Version needed
+        0x00, 0x00,             // Flags
+        0x00, 0x00,             // Compression
+        0x00, 0x00,             // Mod time
+        0x00, 0x00,             // Mod date
+        ...writeUint32(entry.crc),
+        ...writeUint32(entry.size),
+        ...writeUint32(entry.size),
+        ...writeUint16(entry.filename.length),
+        0x00, 0x00,             // Extra field length
+        0x00, 0x00,             // Comment length
+        0x00, 0x00,             // Disk number
+        0x00, 0x00,             // Internal attributes
+        0x00, 0x00, 0x00, 0x00, // External attributes
+        ...writeUint32(entry.offset)
+      ]);
+
+      chunks.push(centralHeader);
+      chunks.push(entry.filename);
+      offset += centralHeader.length + entry.filename.length;
+    }
+
+    // End of central directory
+    const centralSize = offset - centralStart;
+    const endRecord = new Uint8Array([
+      0x50, 0x4B, 0x05, 0x06, // Signature
+      0x00, 0x00,             // Disk number
+      0x00, 0x00,             // Central directory disk
+      ...writeUint16(centralDirectory.length),
+      ...writeUint16(centralDirectory.length),
+      ...writeUint32(centralSize),
+      ...writeUint32(centralStart),
+      0x00, 0x00              // Comment length
+    ]);
+
+    chunks.push(endRecord);
+
+    return new Blob(chunks, { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
   }
 
   detectContentType(content) {

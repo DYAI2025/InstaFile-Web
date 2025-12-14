@@ -5,16 +5,25 @@ class FlashDocContent {
   constructor() {
     this.selectedText = '';
     this.floatingButton = null;
+    this.cornerBall = null; // F3: Separate corner ball element
     this.settings = {
       showFloatingButton: true,
+      showCornerBall: true, // F3: Corner ball visibility setting
       buttonPosition: 'bottom-right',
       autoHideButton: true,
       selectionThreshold: 10,
       enableContextMenu: true,
-      enableSmartDetection: true
+      enableSmartDetection: true,
+      filePrefixes: [], // F2: User-defined prefixes (max 5)
+      prefixUsage: {} // F2: Track prefix usage for smart sorting
     };
     this.stats = { totalSaves: 0 };
     this.runtimeUnavailable = false;
+    this.autoMenuTimer = null; // F5: Timer for auto-menu
+    this.autoMenuCooldown = false; // F5: Prevent menu re-opening after dismiss
+    this.ballDragState = null; // F3: Ball drag state
+    this.ballSnapBackTimer = null; // F3: Timer for snap-back
+    this.ballPinned = false; // F3: Pin state
     this.init();
   }
 
@@ -24,12 +33,209 @@ class FlashDocContent {
     this.setupMessageListener();
     this.setupKeyboardShortcuts();
     this.injectStyles();
-    
+
     if (this.settings.showFloatingButton) {
       this.createFloatingButton();
     }
-    
+
+    // F3: Create corner ball (separate from floating button)
+    if (this.settings.showCornerBall) {
+      this.createCornerBall();
+    }
+
     console.log('⚡ FlashDoc content script initialized');
+  }
+
+  // F3: Corner Ball - Draggable corner icon
+  createCornerBall() {
+    if (this.cornerBall) return;
+
+    const ball = document.createElement('div');
+    ball.className = 'flashdoc-corner-ball';
+    ball.innerHTML = `
+      <div class="flashdoc-ball-icon">⚡</div>
+      <div class="flashdoc-ball-pin" title="Pin position">📌</div>
+    `;
+
+    // Default position (bottom-right corner)
+    this.ballDefaultPosition = { bottom: '80px', right: '20px' };
+    Object.assign(ball.style, this.ballDefaultPosition);
+
+    // Drag functionality
+    ball.addEventListener('mousedown', (e) => this.startBallDrag(e));
+    document.addEventListener('mousemove', (e) => this.onBallDrag(e));
+    document.addEventListener('mouseup', (e) => this.endBallDrag(e));
+
+    // Touch support
+    ball.addEventListener('touchstart', (e) => this.startBallDrag(e), { passive: false });
+    document.addEventListener('touchmove', (e) => this.onBallDrag(e), { passive: false });
+    document.addEventListener('touchend', (e) => this.endBallDrag(e));
+
+    // Pin button click
+    ball.querySelector('.flashdoc-ball-pin').addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.toggleBallPin();
+    });
+
+    // Ball click opens menu
+    ball.querySelector('.flashdoc-ball-icon').addEventListener('click', (e) => {
+      if (!this.ballDragState?.moved) {
+        this.showBallMenu(e);
+      }
+    });
+
+    document.body.appendChild(ball);
+    this.cornerBall = ball;
+  }
+
+  startBallDrag(e) {
+    if (!this.cornerBall) return;
+    e.preventDefault();
+
+    const touch = e.touches ? e.touches[0] : e;
+    const rect = this.cornerBall.getBoundingClientRect();
+
+    this.ballDragState = {
+      active: true,
+      moved: false,
+      startX: touch.clientX,
+      startY: touch.clientY,
+      offsetX: touch.clientX - rect.left,
+      offsetY: touch.clientY - rect.top
+    };
+
+    this.cornerBall.classList.add('dragging');
+
+    // Clear snap-back timer on new drag
+    if (this.ballSnapBackTimer) {
+      clearTimeout(this.ballSnapBackTimer);
+      this.ballSnapBackTimer = null;
+    }
+  }
+
+  onBallDrag(e) {
+    if (!this.ballDragState?.active) return;
+    e.preventDefault();
+
+    const touch = e.touches ? e.touches[0] : e;
+    const dx = Math.abs(touch.clientX - this.ballDragState.startX);
+    const dy = Math.abs(touch.clientY - this.ballDragState.startY);
+
+    // Only count as drag if moved more than 5px
+    if (dx > 5 || dy > 5) {
+      this.ballDragState.moved = true;
+    }
+
+    // Calculate new position (clamped to viewport)
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const ballSize = 48;
+
+    let newX = touch.clientX - this.ballDragState.offsetX;
+    let newY = touch.clientY - this.ballDragState.offsetY;
+
+    // Clamp to viewport
+    newX = Math.max(10, Math.min(newX, viewportWidth - ballSize - 10));
+    newY = Math.max(10, Math.min(newY, viewportHeight - ballSize - 10));
+
+    // Use left/top for dragging (override right/bottom)
+    this.cornerBall.style.right = 'auto';
+    this.cornerBall.style.bottom = 'auto';
+    this.cornerBall.style.left = `${newX}px`;
+    this.cornerBall.style.top = `${newY}px`;
+  }
+
+  endBallDrag(e) {
+    if (!this.ballDragState?.active) return;
+
+    this.cornerBall.classList.remove('dragging');
+
+    if (this.ballDragState.moved && !this.ballPinned) {
+      // F3: Snap back after 5 seconds if not pinned
+      this.ballSnapBackTimer = setTimeout(() => {
+        this.snapBallBack();
+      }, 5000);
+    }
+
+    this.ballDragState.active = false;
+  }
+
+  snapBallBack() {
+    if (!this.cornerBall || this.ballPinned) return;
+
+    this.cornerBall.classList.add('snapping');
+    this.cornerBall.style.left = 'auto';
+    this.cornerBall.style.top = 'auto';
+    Object.assign(this.cornerBall.style, this.ballDefaultPosition);
+
+    setTimeout(() => {
+      this.cornerBall.classList.remove('snapping');
+    }, 300);
+  }
+
+  toggleBallPin() {
+    this.ballPinned = !this.ballPinned;
+    this.cornerBall.classList.toggle('pinned', this.ballPinned);
+
+    if (this.ballPinned && this.ballSnapBackTimer) {
+      clearTimeout(this.ballSnapBackTimer);
+      this.ballSnapBackTimer = null;
+    }
+  }
+
+  showBallMenu(e) {
+    // Show format menu near the ball
+    const rect = this.cornerBall.getBoundingClientRect();
+    this.showContextualButton(rect.left, rect.top, this.selectedText || '');
+  }
+
+  // F5: Auto-menu timer management
+  startAutoMenuTimer() {
+    if (!this.settings.showFloatingButton) return;
+    if (this.autoMenuCooldown) return;
+
+    this.clearAutoMenuTimer();
+
+    this.autoMenuTimer = setTimeout(() => {
+      if (this.selectedText && this.selectedText.length > this.settings.selectionThreshold) {
+        this.showAutoMenu();
+      }
+    }, 3000); // 3 seconds
+  }
+
+  clearAutoMenuTimer() {
+    if (this.autoMenuTimer) {
+      clearTimeout(this.autoMenuTimer);
+      this.autoMenuTimer = null;
+    }
+  }
+
+  showAutoMenu() {
+    if (this.autoMenuCooldown) return;
+
+    // Get selection position for menu placement
+    const selection = window.getSelection();
+    if (!selection.rangeCount) return;
+
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+
+    // Show the contextual button with full menu expanded
+    this.showContextualButton(rect.right, rect.top, this.selectedText);
+
+    // Expand the menu automatically
+    setTimeout(() => {
+      const ctxOptions = document.querySelector('.flashdoc-ctx-options');
+      if (ctxOptions) {
+        ctxOptions.classList.add('auto-expanded');
+      }
+    }, 100);
+
+    // Set cooldown to prevent re-opening
+    this.autoMenuCooldown = true;
+    setTimeout(() => {
+      this.autoMenuCooldown = false;
+    }, 2000);
   }
 
   async loadSettings() {
@@ -99,24 +305,30 @@ class FlashDocContent {
   onTextSelected(text, selection) {
     // Visual feedback
     this.highlightSelection(selection);
-    
+
     // Update floating button
     if (this.floatingButton) {
       this.updateFloatingButton(true, text);
     }
-    
+
     // Smart type detection
     if (this.settings.enableSmartDetection) {
       const detectedType = this.detectContentType(text);
       console.log(`📝 Selected ${text.length} chars, detected: ${detectedType}`);
     }
+
+    // F5: Start auto-menu timer
+    this.startAutoMenuTimer();
   }
 
   onSelectionCleared() {
     this.selectedText = '';
     this.removeHighlight();
     this.hideContextualButton();
-    
+
+    // F5: Clear auto-menu timer
+    this.clearAutoMenuTimer();
+
     if (this.floatingButton && this.settings.autoHideButton) {
       this.updateFloatingButton(false);
     }
@@ -158,11 +370,13 @@ class FlashDocContent {
   // Contextual Save Button
   showContextualButton(x, y, text) {
     this.hideContextualButton();
-    
+
+    // Check if floating button is disabled
+    if (!this.settings.showFloatingButton) return;
     if (!this.settings.enableContextMenu) return;
-    
+
     const detectedType = this.detectContentType(text);
-    
+
     const button = document.createElement('div');
     button.className = 'flashdoc-contextual';
     button.innerHTML = `
@@ -174,26 +388,35 @@ class FlashDocContent {
       <div class="flashdoc-ctx-options">
         <button data-format="txt" title="Text">📄</button>
         <button data-format="md" title="Markdown">📝</button>
+        <button data-format="docx" title="Word">📜</button>
         <button data-format="pdf" title="PDF">📕</button>
         <button data-format="saveas" title="Save As">📁</button>
       </div>
     `;
-    
-    // Smart positioning to avoid viewport edges
+
+    // Smart positioning with 40px offset (F1: repositioned further right-up)
     const viewportWidth = window.innerWidth;
     const viewportHeight = window.innerHeight;
     const buttonWidth = 140;
     const buttonHeight = 40;
-    
-    let posX = x + 10;
-    let posY = y - buttonHeight - 10;
-    
-    if (posX + buttonWidth > viewportWidth) {
-      posX = viewportWidth - buttonWidth - 10;
+    const offsetX = 40; // F1: New offset - further right
+    const offsetY = 40; // F1: New offset - further up
+
+    let posX = x + offsetX;
+    let posY = y - buttonHeight - offsetY;
+
+    // Viewport clamping with flip logic
+    if (posX + buttonWidth > viewportWidth - 10) {
+      // Flip to left side of cursor
+      posX = Math.max(10, x - buttonWidth - 10);
     }
     if (posY < 10) {
+      // Flip to below cursor
       posY = y + 20;
     }
+    // Final clamp to viewport
+    posX = Math.max(10, Math.min(posX, viewportWidth - buttonWidth - 10));
+    posY = Math.max(10, Math.min(posY, viewportHeight - buttonHeight - 10));
     
     button.style.left = `${posX}px`;
     button.style.top = `${posY}px`;
@@ -253,6 +476,10 @@ class FlashDocContent {
           <button data-format="md" class="flashdoc-fab-option" title="Markdown">
             <span>📝</span>
             <label>MD</label>
+          </button>
+          <button data-format="docx" class="flashdoc-fab-option" title="Word Document">
+            <span>📜</span>
+            <label>DOCX</label>
           </button>
           <button data-format="pdf" class="flashdoc-fab-option" title="PDF">
             <span>📕</span>
@@ -878,8 +1105,87 @@ class FlashDocContent {
       .flashdoc-toast-warning {
         background: linear-gradient(135deg, #f57c00 0%, #ffb74d 100%);
       }
+
+      /* F3: Corner Ball Styles */
+      .flashdoc-corner-ball {
+        position: fixed;
+        z-index: 999995;
+        width: 48px;
+        height: 48px;
+        cursor: grab;
+        user-select: none;
+        transition: transform 0.2s, box-shadow 0.2s;
+      }
+
+      .flashdoc-corner-ball.dragging {
+        cursor: grabbing;
+        transform: scale(1.1);
+        z-index: 999999;
+      }
+
+      .flashdoc-corner-ball.snapping {
+        transition: all 0.3s ease-out;
+      }
+
+      .flashdoc-ball-icon {
+        width: 48px;
+        height: 48px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        transition: all 0.2s;
+      }
+
+      .flashdoc-corner-ball:hover .flashdoc-ball-icon {
+        transform: scale(1.05);
+        box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
+      }
+
+      .flashdoc-ball-pin {
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        width: 24px;
+        height: 24px;
+        background: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        cursor: pointer;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        opacity: 0;
+        transform: scale(0.8);
+        transition: all 0.2s;
+      }
+
+      .flashdoc-corner-ball:hover .flashdoc-ball-pin {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      .flashdoc-corner-ball.pinned .flashdoc-ball-pin {
+        opacity: 1;
+        transform: scale(1);
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      }
+
+      .flashdoc-corner-ball.pinned .flashdoc-ball-icon {
+        box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.4), 0 4px 12px rgba(102, 126, 234, 0.4);
+      }
+
+      /* F5: Auto-expanded menu styles */
+      .flashdoc-ctx-options.auto-expanded {
+        display: flex !important;
+        animation: flashdoc-slide-in 0.3s ease-out;
+      }
     `;
-    
+
     document.head.appendChild(style);
   }
 }

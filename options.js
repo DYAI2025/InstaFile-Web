@@ -2,6 +2,7 @@ const CONTEXT_MENU_OPTIONS = [
   { id: 'auto', label: 'Smart auto-detect', description: 'Let FlashDoc choose the best format', emoji: '🎯' },
   { id: 'txt', label: 'Plain text (.txt)', description: 'Simple notes and prose', emoji: '📄' },
   { id: 'md', label: 'Markdown (.md)', description: 'Lightweight formatted docs', emoji: '📝' },
+  { id: 'docx', label: 'Word (.docx)', description: 'Microsoft Word documents', emoji: '📜' },
   { id: 'json', label: 'JSON (.json)', description: 'APIs and structured data', emoji: '🧩' },
   { id: 'js', label: 'JavaScript (.js)', description: 'Browser and Node snippets', emoji: '🟡' },
   { id: 'ts', label: 'TypeScript (.ts)', description: 'Typed code blocks', emoji: '🔵' },
@@ -28,6 +29,7 @@ const DEFAULT_SETTINGS = {
   autoDetectType: true,
   enableContextMenu: true,
   showFloatingButton: true,
+  showCornerBall: true, // F3: Corner ball visibility
   buttonPosition: 'bottom-right',
   autoHideButton: true,
   selectionThreshold: 10,
@@ -35,8 +37,13 @@ const DEFAULT_SETTINGS = {
   trackFormatUsage: true,
   trackDetectionAccuracy: true,
   showFormatRecommendations: true,
-  contextMenuFormats: CONTEXT_MENU_OPTIONS.map(option => option.id)
+  contextMenuFormats: CONTEXT_MENU_OPTIONS.map(option => option.id),
+  // F2: File prefix system
+  filePrefixes: [], // Array of {id, name} objects, max 5
+  prefixUsage: {}
 };
+
+const MAX_PREFIXES = 5;
 
 const manifest = chrome.runtime.getManifest();
 
@@ -45,6 +52,9 @@ document.addEventListener('DOMContentLoaded', () => {
   setupForm();
   loadSettings();
   loadRecommendations();
+  // F2: Initialize prefix management
+  setupPrefixUI();
+  loadPrefixes();
 });
 
 function renderVersion() {
@@ -371,4 +381,137 @@ function getSelectedContextMenuFormats(form) {
   return Array.from(form.querySelectorAll('input[name="contextMenuFormats"]'))
     .filter(input => input.checked)
     .map(input => input.value);
+}
+
+// F2: Prefix Management Functions
+function renderPrefixList(prefixes = []) {
+  const container = document.getElementById('prefix-list');
+  if (!container) return;
+
+  container.innerHTML = '';
+
+  if (prefixes.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <span class="empty-icon">🏷️</span>
+        <p>No prefixes defined yet</p>
+      </div>
+    `;
+    return;
+  }
+
+  prefixes.forEach((prefix, index) => {
+    const item = document.createElement('div');
+    item.className = 'prefix-item';
+    item.dataset.id = prefix.id;
+    item.innerHTML = `
+      <input type="text" class="prefix-name" value="${escapeHtml(prefix.name)}"
+             maxlength="20" placeholder="Prefix name">
+      <button type="button" class="prefix-delete" title="Delete prefix">🗑️</button>
+    `;
+
+    // Handle name change
+    const input = item.querySelector('.prefix-name');
+    input.addEventListener('change', () => {
+      updatePrefixName(prefix.id, input.value);
+    });
+
+    // Handle delete
+    item.querySelector('.prefix-delete').addEventListener('click', () => {
+      deletePrefix(prefix.id);
+    });
+
+    container.appendChild(item);
+  });
+
+  updatePrefixCount(prefixes.length);
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function updatePrefixCount(count) {
+  const countEl = document.getElementById('prefix-count');
+  if (countEl) {
+    countEl.textContent = `${count}/${MAX_PREFIXES}`;
+    countEl.classList.toggle('at-limit', count >= MAX_PREFIXES);
+  }
+
+  const addBtn = document.getElementById('add-prefix');
+  if (addBtn) {
+    addBtn.disabled = count >= MAX_PREFIXES;
+  }
+}
+
+async function addPrefix() {
+  const settings = await chrome.storage.sync.get(['filePrefixes']);
+  const prefixes = settings.filePrefixes || [];
+
+  if (prefixes.length >= MAX_PREFIXES) {
+    showStatusMessage(`Maximum ${MAX_PREFIXES} prefixes allowed.`, 'error');
+    return;
+  }
+
+  const newPrefix = {
+    id: `prefix_${Date.now()}`,
+    name: `Prefix ${prefixes.length + 1}`
+  };
+
+  prefixes.push(newPrefix);
+  await chrome.storage.sync.set({ filePrefixes: prefixes });
+  renderPrefixList(prefixes);
+  showStatusMessage('Prefix added.', 'success');
+}
+
+async function updatePrefixName(prefixId, newName) {
+  const trimmedName = newName.trim();
+
+  if (!trimmedName) {
+    showStatusMessage('Prefix name cannot be empty.', 'error');
+    // Reload to reset to previous value
+    const settings = await chrome.storage.sync.get(['filePrefixes']);
+    renderPrefixList(settings.filePrefixes || []);
+    return;
+  }
+
+  const settings = await chrome.storage.sync.get(['filePrefixes']);
+  const prefixes = settings.filePrefixes || [];
+
+  // Check for duplicates
+  const isDuplicate = prefixes.some(p => p.id !== prefixId && p.name.toLowerCase() === trimmedName.toLowerCase());
+  if (isDuplicate) {
+    showStatusMessage('A prefix with this name already exists.', 'error');
+    renderPrefixList(prefixes);
+    return;
+  }
+
+  const prefix = prefixes.find(p => p.id === prefixId);
+  if (prefix) {
+    prefix.name = trimmedName;
+    await chrome.storage.sync.set({ filePrefixes: prefixes });
+    showStatusMessage('Prefix updated.', 'success');
+  }
+}
+
+async function deletePrefix(prefixId) {
+  const settings = await chrome.storage.sync.get(['filePrefixes']);
+  const prefixes = (settings.filePrefixes || []).filter(p => p.id !== prefixId);
+  await chrome.storage.sync.set({ filePrefixes: prefixes });
+  renderPrefixList(prefixes);
+  showStatusMessage('Prefix deleted.', 'success');
+}
+
+function setupPrefixUI() {
+  const addBtn = document.getElementById('add-prefix');
+  if (addBtn) {
+    addBtn.addEventListener('click', addPrefix);
+  }
+}
+
+async function loadPrefixes() {
+  const settings = await chrome.storage.sync.get(['filePrefixes']);
+  renderPrefixList(settings.filePrefixes || []);
 }

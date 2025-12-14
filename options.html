@@ -114,6 +114,35 @@
         <div class="format-grid" id="context-menu-formats"></div>
       </section>
 
+      <!-- F2: File Prefixes Section -->
+      <section class="options-card">
+        <h2>File Prefixes</h2>
+        <p class="help">Define prefixes to organize your saved files. You'll be asked to choose a prefix after selecting a format.</p>
+        <div class="prefix-header">
+          <span class="prefix-count" id="prefix-count">0/5</span>
+          <button type="button" class="btn secondary small" id="add-prefix">+ Add Prefix</button>
+        </div>
+        <div class="prefix-list" id="prefix-list">
+          <div class="empty-state">
+            <span class="empty-icon">🏷️</span>
+            <p>No prefixes defined yet</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- F3: Corner Ball Section -->
+      <section class="options-card">
+        <h2>Corner Ball</h2>
+        <p class="help">The FlashDoc ball appears in the corner and can be dragged out of the way.</p>
+        <div class="toggle">
+          <label for="showCornerBall">Show corner ball</label>
+          <label class="switch">
+            <input id="showCornerBall" name="showCornerBall" type="checkbox">
+            <span class="slider"></span>
+          </label>
+        </div>
+      </section>
+
       <section class="options-card">
         <h2>Feedback</h2>
         <div class="toggle">

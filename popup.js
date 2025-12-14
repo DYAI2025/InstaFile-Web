@@ -29,6 +29,7 @@ const ACTION_TYPES = {
   smart: 'auto',
   txt: 'txt',
   md: 'md',
+  docx: 'docx',
   pdf: 'pdf',
   label: 'label',
 };
