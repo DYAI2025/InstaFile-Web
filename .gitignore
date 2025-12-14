@@ -1,11 +1,45 @@
+# Build & Dependencies
 node_modules/
-*.zip
-.DS_Store
-*.log
 dist/
-.env
+*.log
+
+# System
+.DS_Store
 *.bak
 *.tmp
+
+# Archives
+*.zip
+
+# Legacy/Drafts
 brainstorm_ergebnis*.md
 artifacts_.md
 FlashDoc-ChExt/
+
+# Website (separate repo)
+index.html
+impressum.html
+privacy.html
+doctype_index.html
+CNAME
+ads.txt
+assets/
+
+# Tests (local only)
+tests/
+vitest.config.js
+package.json
+package-lock.json
+
+# Docs (local only)
+AGENTS.md
+PRODUCTION-READY.md
+SMOKE-TESTS.md
+TESTING.md
+QWEN.md
+
+# Legacy files
+background.js
+create-icons.html
+test-flashdoc.html
+.github/
