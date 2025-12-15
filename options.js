@@ -106,9 +106,9 @@ function setupForm() {
   }
 
   if (form) {
-    form.addEventListener('submit', (event) => {
+    form.addEventListener('submit', async (event) => {
       event.preventDefault();
-      const settings = readFormSettings(form);
+      const settings = await readFormSettings(form);
       saveSettings(settings, { showStatus: true });
     });
   }
@@ -125,9 +125,11 @@ async function loadSettings() {
   }
 }
 
-function readFormSettings(form) {
+async function readFormSettings(form) {
   const data = new FormData(form);
-  const settings = { ...DEFAULT_SETTINGS };
+  // Preserve existing shortcuts - they're managed separately
+  const stored = await chrome.storage.sync.get(['categoryShortcuts']);
+  const settings = { ...DEFAULT_SETTINGS, categoryShortcuts: stored.categoryShortcuts || [] };
 
   settings.folderPath = (data.get('folderPath') || DEFAULT_SETTINGS.folderPath).trim() || DEFAULT_SETTINGS.folderPath;
   settings.namingPattern = data.get('namingPattern') || DEFAULT_SETTINGS.namingPattern;
