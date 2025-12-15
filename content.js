@@ -45,6 +45,11 @@ class FlashDocContent {
 
   // F3: Corner Ball - Draggable corner icon
   createCornerBall() {
+    // Prevent duplicates from re-injection
+    const existing = document.querySelector('.flashdoc-corner-ball');
+    if (existing) {
+      existing.remove();
+    }
     if (this.cornerBall) return;
 
     const ball = document.createElement('div');
@@ -420,6 +425,11 @@ class FlashDocContent {
 
   // Floating Action Button
   createFloatingButton() {
+    // Prevent duplicates from re-injection
+    const existing = document.querySelector('.flashdoc-floating');
+    if (existing) {
+      existing.remove();
+    }
     if (this.floatingButton) return;
 
     // Build shortcuts HTML
@@ -883,6 +893,11 @@ class FlashDocContent {
 
   // Style Injection
   injectStyles() {
+    // Prevent duplicate styles from re-injection
+    const existing = document.getElementById('flashdoc-styles');
+    if (existing) {
+      existing.remove();
+    }
     const style = document.createElement('style');
     style.id = 'flashdoc-styles';
     style.textContent = `

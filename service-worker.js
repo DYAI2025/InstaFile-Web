@@ -1004,10 +1004,38 @@ class FlashDoc {
 // Initialize
 new FlashDoc();
 
-// Handle installation
-chrome.runtime.onInstalled.addListener((details) => {
+// Handle installation and extension reload
+chrome.runtime.onInstalled.addListener(async (details) => {
+  console.log(`⚡ FlashDoc ${details.reason}: re-injecting content scripts...`);
+
+  // Re-inject content scripts into all existing tabs to fix "Extension not available" error
+  // This is necessary because old content scripts become orphaned after extension reload
+  try {
+    const tabs = await chrome.tabs.query({});
+    for (const tab of tabs) {
+      // Skip chrome:// pages, extension pages, and tabs without URLs
+      if (tab.id && tab.url &&
+          !tab.url.startsWith('chrome://') &&
+          !tab.url.startsWith('chrome-extension://') &&
+          !tab.url.startsWith('about:')) {
+        try {
+          await chrome.scripting.executeScript({
+            target: { tabId: tab.id, allFrames: true },
+            files: ['content.js']
+          });
+          console.log(`✅ Injected into tab ${tab.id}: ${tab.url.substring(0, 50)}...`);
+        } catch (e) {
+          // Tab might not support scripting - this is normal
+          console.log(`⏭️ Skipped tab ${tab.id}: ${e.message}`);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Failed to re-inject content scripts:', error);
+  }
+
   if (details.reason === 'install') {
-    console.log('\uD83C\uDF89 FlashDoc installed!');
+    console.log('🎉 FlashDoc installed!');
     chrome.tabs.create({ url: 'options.html' });
   }
 });
