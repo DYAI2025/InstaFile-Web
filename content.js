@@ -14,13 +14,10 @@ class FlashDocContent {
       selectionThreshold: 10,
       enableContextMenu: true,
       enableSmartDetection: true,
-      filePrefixes: [], // F2: User-defined prefixes (max 5)
-      prefixUsage: {} // F2: Track prefix usage for smart sorting
+      categoryShortcuts: [] // Category shortcuts: {id, name, format}
     };
     this.stats = { totalSaves: 0 };
     this.runtimeUnavailable = false;
-    this.autoMenuTimer = null; // F5: Timer for auto-menu
-    this.autoMenuCooldown = false; // F5: Prevent menu re-opening after dismiss
     this.ballDragState = null; // F3: Ball drag state
     this.ballSnapBackTimer = null; // F3: Timer for snap-back
     this.ballPinned = false; // F3: Pin state
@@ -189,55 +186,6 @@ class FlashDocContent {
     this.showContextualButton(rect.left, rect.top, this.selectedText || '');
   }
 
-  // F5: Auto-menu timer management
-  startAutoMenuTimer() {
-    if (!this.settings.showFloatingButton) return;
-    if (this.autoMenuCooldown) return;
-
-    this.clearAutoMenuTimer();
-
-    this.autoMenuTimer = setTimeout(() => {
-      if (this.selectedText && this.selectedText.length > this.settings.selectionThreshold) {
-        this.showAutoMenu();
-      }
-    }, 3000); // 3 seconds
-  }
-
-  clearAutoMenuTimer() {
-    if (this.autoMenuTimer) {
-      clearTimeout(this.autoMenuTimer);
-      this.autoMenuTimer = null;
-    }
-  }
-
-  showAutoMenu() {
-    if (this.autoMenuCooldown) return;
-
-    // Get selection position for menu placement
-    const selection = window.getSelection();
-    if (!selection.rangeCount) return;
-
-    const range = selection.getRangeAt(0);
-    const rect = range.getBoundingClientRect();
-
-    // Show the contextual button with full menu expanded
-    this.showContextualButton(rect.right, rect.top, this.selectedText);
-
-    // Expand the menu automatically
-    setTimeout(() => {
-      const ctxOptions = document.querySelector('.flashdoc-ctx-options');
-      if (ctxOptions) {
-        ctxOptions.classList.add('auto-expanded');
-      }
-    }, 100);
-
-    // Set cooldown to prevent re-opening
-    this.autoMenuCooldown = true;
-    setTimeout(() => {
-      this.autoMenuCooldown = false;
-    }, 2000);
-  }
-
   async loadSettings() {
     try {
       const stored = await chrome.storage.sync.get(null);
@@ -316,18 +264,12 @@ class FlashDocContent {
       const detectedType = this.detectContentType(text);
       console.log(`📝 Selected ${text.length} chars, detected: ${detectedType}`);
     }
-
-    // F5: Start auto-menu timer
-    this.startAutoMenuTimer();
   }
 
   onSelectionCleared() {
     this.selectedText = '';
     this.removeHighlight();
     this.hideContextualButton();
-
-    // F5: Clear auto-menu timer
-    this.clearAutoMenuTimer();
 
     if (this.floatingButton && this.settings.autoHideButton) {
       this.updateFloatingButton(false);
@@ -452,10 +394,37 @@ class FlashDocContent {
     });
   }
 
+  // Build HTML for category shortcuts
+  buildShortcutsHtml() {
+    const shortcuts = this.settings.categoryShortcuts || [];
+    if (shortcuts.length === 0) return '';
+
+    const formatEmojis = {
+      txt: '📄', md: '📝', docx: '📜', pdf: '📕', json: '🧩',
+      js: '🟡', ts: '🔵', py: '🐍', html: '🌐', css: '🎨',
+      yaml: '🧾', sql: '📑', sh: '⚙️'
+    };
+
+    return shortcuts.map(s => {
+      const emoji = formatEmojis[s.format] || '📄';
+      const label = `${s.name}_save.${s.format}`;
+      return `
+        <button data-shortcut="${s.id}" data-shortcut-name="${s.name}" data-shortcut-format="${s.format}"
+                class="flashdoc-fab-option flashdoc-shortcut" title="${label}">
+          <span>${emoji}</span>
+          <label>${s.name}</label>
+        </button>
+      `;
+    }).join('');
+  }
+
   // Floating Action Button
   createFloatingButton() {
     if (this.floatingButton) return;
-    
+
+    // Build shortcuts HTML
+    const shortcutsHtml = this.buildShortcutsHtml();
+
     const button = document.createElement('div');
     button.className = 'flashdoc-floating';
     button.innerHTML = `
@@ -465,6 +434,8 @@ class FlashDocContent {
           <span class="flashdoc-fab-save" style="display:none">💾</span>
         </div>
         <div class="flashdoc-fab-menu">
+          ${shortcutsHtml}
+          <div class="flashdoc-fab-divider"></div>
           <button data-format="smart" class="flashdoc-fab-option" title="Smart Save">
             <span>🎯</span>
             <label>Auto</label>
@@ -488,10 +459,6 @@ class FlashDocContent {
           <button data-format="saveas" class="flashdoc-fab-option" title="Save As">
             <span>📁</span>
             <label>Save As</label>
-          </button>
-          <button data-format="code" class="flashdoc-fab-option" title="Code">
-            <span>👨‍💻</span>
-            <label>Code</label>
           </button>
         </div>
       </div>
@@ -527,11 +494,13 @@ class FlashDocContent {
     fabMenu.addEventListener('click', (e) => {
       const option = e.target.closest('.flashdoc-fab-option');
       if (option) {
-        const format = option.dataset.format;
-        if (format === 'code') {
-          // Special handling for code - save page source
-          this.savePageSource();
+        // Check if it's a shortcut
+        if (option.dataset.shortcut) {
+          const shortcutName = option.dataset.shortcutName;
+          const shortcutFormat = option.dataset.shortcutFormat;
+          this.saveWithShortcut(shortcutName, shortcutFormat);
         } else {
+          const format = option.dataset.format;
           this.saveWithFormat(format);
         }
         fabMenu.classList.remove('show');
@@ -737,7 +706,7 @@ class FlashDocContent {
     }
 
     const content = this.selectedText || document.title + '\n' + window.location.href;
-    
+
     try {
       const response = await this.safeSendMessage({
         action: 'saveContent',
@@ -757,6 +726,36 @@ class FlashDocContent {
         this.showToast(toastMessage, 'success');
         this.updateButtonStats();
         this.addSaveAnimation();
+      }
+    } catch (error) {
+      console.error('Save error:', error);
+      const ignorable = this.isIgnorableRuntimeError(error);
+      const message = ignorable ? '⚠️ Extension unavailable' : '❌ Save failed';
+      this.showToast(message, ignorable ? 'warning' : 'error');
+    }
+  }
+
+  // Save with category shortcut (prefix + format)
+  async saveWithShortcut(categoryName, format) {
+    if (!this.selectedText) {
+      this.showToast('⚠️ No text selected', 'warning');
+      return;
+    }
+
+    try {
+      const response = await this.safeSendMessage({
+        action: 'saveContent',
+        content: this.selectedText,
+        type: format,
+        prefix: categoryName // Pass the category name as prefix
+      });
+
+      if (response && response.success) {
+        this.showToast(`✅ Saved as ${categoryName}_save.${format}`, 'success');
+        this.updateButtonStats();
+        this.addSaveAnimation();
+        this.selectedText = '';
+        this.updateFloatingButton(false);
       }
     } catch (error) {
       console.error('Save error:', error);
@@ -1056,6 +1055,22 @@ class FlashDocContent {
         font-weight: 600;
         cursor: pointer;
       }
+
+      .flashdoc-fab-divider {
+        height: 1px;
+        background: rgba(255, 255, 255, 0.1);
+        margin: 4px 0;
+      }
+
+      .flashdoc-shortcut {
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.15));
+        border: 1px solid rgba(102, 126, 234, 0.3);
+      }
+
+      .flashdoc-shortcut:hover {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-color: transparent;
+      }
       
       .flashdoc-fab-counter {
         position: absolute;
@@ -1177,12 +1192,6 @@ class FlashDocContent {
 
       .flashdoc-corner-ball.pinned .flashdoc-ball-icon {
         box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.4), 0 4px 12px rgba(102, 126, 234, 0.4);
-      }
-
-      /* F5: Auto-expanded menu styles */
-      .flashdoc-ctx-options.auto-expanded {
-        display: flex !important;
-        animation: flashdoc-slide-in 0.3s ease-out;
       }
     `;
 

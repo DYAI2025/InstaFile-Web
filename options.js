@@ -19,6 +19,23 @@ const CONTEXT_MENU_OPTIONS = [
   { id: 'saveas', label: 'Save As…', description: 'Pick folder & filename each time', emoji: '📁' }
 ];
 
+// Available formats for shortcuts
+const SHORTCUT_FORMATS = [
+  { id: 'txt', label: '.txt', emoji: '📄' },
+  { id: 'md', label: '.md', emoji: '📝' },
+  { id: 'docx', label: '.docx', emoji: '📜' },
+  { id: 'pdf', label: '.pdf', emoji: '📕' },
+  { id: 'json', label: '.json', emoji: '🧩' },
+  { id: 'js', label: '.js', emoji: '🟡' },
+  { id: 'ts', label: '.ts', emoji: '🔵' },
+  { id: 'py', label: '.py', emoji: '🐍' },
+  { id: 'html', label: '.html', emoji: '🌐' },
+  { id: 'css', label: '.css', emoji: '🎨' },
+  { id: 'yaml', label: '.yaml', emoji: '🧾' },
+  { id: 'sql', label: '.sql', emoji: '📑' },
+  { id: 'sh', label: '.sh', emoji: '⚙️' }
+];
+
 const DEFAULT_SETTINGS = {
   folderPath: 'FlashDocs/',
   namingPattern: 'timestamp',
@@ -38,12 +55,11 @@ const DEFAULT_SETTINGS = {
   trackDetectionAccuracy: true,
   showFormatRecommendations: true,
   contextMenuFormats: CONTEXT_MENU_OPTIONS.map(option => option.id),
-  // F2: File prefix system
-  filePrefixes: [], // Array of {id, name} objects, max 5
-  prefixUsage: {}
+  // Category Shortcuts: prefix + format combo
+  categoryShortcuts: [] // Array of {id, name, format} objects, max 5
 };
 
-const MAX_PREFIXES = 5;
+const MAX_SHORTCUTS = 5;
 
 const manifest = chrome.runtime.getManifest();
 
@@ -52,9 +68,9 @@ document.addEventListener('DOMContentLoaded', () => {
   setupForm();
   loadSettings();
   loadRecommendations();
-  // F2: Initialize prefix management
-  setupPrefixUI();
-  loadPrefixes();
+  // Category Shortcuts management
+  setupShortcutUI();
+  loadShortcuts();
 });
 
 function renderVersion() {
@@ -383,48 +399,64 @@ function getSelectedContextMenuFormats(form) {
     .map(input => input.value);
 }
 
-// F2: Prefix Management Functions
-function renderPrefixList(prefixes = []) {
-  const container = document.getElementById('prefix-list');
+// Category Shortcuts Management Functions
+function renderShortcutList(shortcuts = []) {
+  const container = document.getElementById('shortcut-list');
   if (!container) return;
 
   container.innerHTML = '';
 
-  if (prefixes.length === 0) {
+  if (shortcuts.length === 0) {
     container.innerHTML = `
       <div class="empty-state">
-        <span class="empty-icon">🏷️</span>
-        <p>No prefixes defined yet</p>
+        <span class="empty-icon">⚡</span>
+        <p>No shortcuts defined yet</p>
       </div>
     `;
     return;
   }
 
-  prefixes.forEach((prefix, index) => {
+  shortcuts.forEach((shortcut) => {
     const item = document.createElement('div');
-    item.className = 'prefix-item';
-    item.dataset.id = prefix.id;
+    item.className = 'shortcut-item';
+    item.dataset.id = shortcut.id;
+
+    // Build format options
+    const formatOptions = SHORTCUT_FORMATS.map(f =>
+      `<option value="${f.id}" ${shortcut.format === f.id ? 'selected' : ''}>${f.emoji} ${f.label}</option>`
+    ).join('');
+
+    const displayName = `${shortcut.name}_save${SHORTCUT_FORMATS.find(f => f.id === shortcut.format)?.label || '.txt'}`;
+
     item.innerHTML = `
-      <input type="text" class="prefix-name" value="${escapeHtml(prefix.name)}"
-             maxlength="20" placeholder="Prefix name">
-      <button type="button" class="prefix-delete" title="Delete prefix">🗑️</button>
+      <div class="shortcut-preview">${displayName}</div>
+      <input type="text" class="shortcut-name" value="${escapeHtml(shortcut.name)}"
+             maxlength="15" placeholder="Category name">
+      <select class="shortcut-format">${formatOptions}</select>
+      <button type="button" class="shortcut-delete" title="Delete shortcut">🗑️</button>
     `;
 
     // Handle name change
-    const input = item.querySelector('.prefix-name');
-    input.addEventListener('change', () => {
-      updatePrefixName(prefix.id, input.value);
+    const nameInput = item.querySelector('.shortcut-name');
+    nameInput.addEventListener('change', () => {
+      updateShortcut(shortcut.id, nameInput.value, item.querySelector('.shortcut-format').value);
+    });
+
+    // Handle format change
+    const formatSelect = item.querySelector('.shortcut-format');
+    formatSelect.addEventListener('change', () => {
+      updateShortcut(shortcut.id, nameInput.value, formatSelect.value);
     });
 
     // Handle delete
-    item.querySelector('.prefix-delete').addEventListener('click', () => {
-      deletePrefix(prefix.id);
+    item.querySelector('.shortcut-delete').addEventListener('click', () => {
+      deleteShortcut(shortcut.id);
     });
 
     container.appendChild(item);
   });
 
-  updatePrefixCount(prefixes.length);
+  updateShortcutCount(shortcuts.length);
 }
 
 function escapeHtml(text) {
@@ -433,85 +465,92 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-function updatePrefixCount(count) {
-  const countEl = document.getElementById('prefix-count');
+function updateShortcutCount(count) {
+  const countEl = document.getElementById('shortcut-count');
   if (countEl) {
-    countEl.textContent = `${count}/${MAX_PREFIXES}`;
-    countEl.classList.toggle('at-limit', count >= MAX_PREFIXES);
+    countEl.textContent = `${count}/${MAX_SHORTCUTS}`;
+    countEl.classList.toggle('at-limit', count >= MAX_SHORTCUTS);
   }
 
-  const addBtn = document.getElementById('add-prefix');
+  const addBtn = document.getElementById('add-shortcut');
   if (addBtn) {
-    addBtn.disabled = count >= MAX_PREFIXES;
+    addBtn.disabled = count >= MAX_SHORTCUTS;
   }
 }
 
-async function addPrefix() {
-  const settings = await chrome.storage.sync.get(['filePrefixes']);
-  const prefixes = settings.filePrefixes || [];
+async function addShortcut() {
+  const settings = await chrome.storage.sync.get(['categoryShortcuts']);
+  const shortcuts = settings.categoryShortcuts || [];
 
-  if (prefixes.length >= MAX_PREFIXES) {
-    showStatusMessage(`Maximum ${MAX_PREFIXES} prefixes allowed.`, 'error');
+  if (shortcuts.length >= MAX_SHORTCUTS) {
+    showStatusMessage(`Maximum ${MAX_SHORTCUTS} shortcuts allowed.`, 'error');
     return;
   }
 
-  const newPrefix = {
-    id: `prefix_${Date.now()}`,
-    name: `Prefix ${prefixes.length + 1}`
+  const newShortcut = {
+    id: `shortcut_${Date.now()}`,
+    name: `Category${shortcuts.length + 1}`,
+    format: 'md' // Default format
   };
 
-  prefixes.push(newPrefix);
-  await chrome.storage.sync.set({ filePrefixes: prefixes });
-  renderPrefixList(prefixes);
-  showStatusMessage('Prefix added.', 'success');
+  shortcuts.push(newShortcut);
+  await chrome.storage.sync.set({ categoryShortcuts: shortcuts });
+  renderShortcutList(shortcuts);
+  showStatusMessage('Shortcut added.', 'success');
 }
 
-async function updatePrefixName(prefixId, newName) {
-  const trimmedName = newName.trim();
+async function updateShortcut(shortcutId, newName, newFormat) {
+  const trimmedName = newName.trim().replace(/[^a-zA-Z0-9_-]/g, ''); // Sanitize for filename
 
   if (!trimmedName) {
-    showStatusMessage('Prefix name cannot be empty.', 'error');
-    // Reload to reset to previous value
-    const settings = await chrome.storage.sync.get(['filePrefixes']);
-    renderPrefixList(settings.filePrefixes || []);
+    showStatusMessage('Category name cannot be empty.', 'error');
+    const settings = await chrome.storage.sync.get(['categoryShortcuts']);
+    renderShortcutList(settings.categoryShortcuts || []);
     return;
   }
 
-  const settings = await chrome.storage.sync.get(['filePrefixes']);
-  const prefixes = settings.filePrefixes || [];
+  const settings = await chrome.storage.sync.get(['categoryShortcuts']);
+  const shortcuts = settings.categoryShortcuts || [];
 
-  // Check for duplicates
-  const isDuplicate = prefixes.some(p => p.id !== prefixId && p.name.toLowerCase() === trimmedName.toLowerCase());
+  // Check for duplicates (same name + format combo)
+  const isDuplicate = shortcuts.some(s =>
+    s.id !== shortcutId &&
+    s.name.toLowerCase() === trimmedName.toLowerCase() &&
+    s.format === newFormat
+  );
+
   if (isDuplicate) {
-    showStatusMessage('A prefix with this name already exists.', 'error');
-    renderPrefixList(prefixes);
+    showStatusMessage('This shortcut already exists.', 'error');
+    renderShortcutList(shortcuts);
     return;
   }
 
-  const prefix = prefixes.find(p => p.id === prefixId);
-  if (prefix) {
-    prefix.name = trimmedName;
-    await chrome.storage.sync.set({ filePrefixes: prefixes });
-    showStatusMessage('Prefix updated.', 'success');
+  const shortcut = shortcuts.find(s => s.id === shortcutId);
+  if (shortcut) {
+    shortcut.name = trimmedName;
+    shortcut.format = newFormat;
+    await chrome.storage.sync.set({ categoryShortcuts: shortcuts });
+    renderShortcutList(shortcuts);
+    showStatusMessage('Shortcut updated.', 'success');
   }
 }
 
-async function deletePrefix(prefixId) {
-  const settings = await chrome.storage.sync.get(['filePrefixes']);
-  const prefixes = (settings.filePrefixes || []).filter(p => p.id !== prefixId);
-  await chrome.storage.sync.set({ filePrefixes: prefixes });
-  renderPrefixList(prefixes);
-  showStatusMessage('Prefix deleted.', 'success');
+async function deleteShortcut(shortcutId) {
+  const settings = await chrome.storage.sync.get(['categoryShortcuts']);
+  const shortcuts = (settings.categoryShortcuts || []).filter(s => s.id !== shortcutId);
+  await chrome.storage.sync.set({ categoryShortcuts: shortcuts });
+  renderShortcutList(shortcuts);
+  showStatusMessage('Shortcut deleted.', 'success');
 }
 
-function setupPrefixUI() {
-  const addBtn = document.getElementById('add-prefix');
+function setupShortcutUI() {
+  const addBtn = document.getElementById('add-shortcut');
   if (addBtn) {
-    addBtn.addEventListener('click', addPrefix);
+    addBtn.addEventListener('click', addShortcut);
   }
 }
 
-async function loadPrefixes() {
-  const settings = await chrome.storage.sync.get(['filePrefixes']);
-  renderPrefixList(settings.filePrefixes || []);
+async function loadShortcuts() {
+  const settings = await chrome.storage.sync.get(['categoryShortcuts']);
+  renderShortcutList(settings.categoryShortcuts || []);
 }

@@ -1,42 +1,35 @@
-# FlashDoc 2.1.0 - Release Notes
+# FlashDoc 2.2.0 - Release Notes
 
 ## Neu
 
-### Word-Dokumente (DOCX)
-Endlich! FlashDoc kann jetzt auch echte Word-Dateien erstellen. Einfach Text markieren und als .docx speichern - funktioniert offline und ohne externe Dienste.
-
-### Datei-Präfixe
-Organisiere deine Dateien besser mit benutzerdefinierten Präfixen:
-- Definiere bis zu 5 Präfixe in den Einstellungen (z.B. "Projekt_", "Meeting_", "Notiz_")
-- Nach der Formatwahl erscheint ein Menü zur Präfix-Auswahl
-- Häufig genutzte Präfixe werden automatisch nach oben sortiert
-
-### FlashDoc-Ball
-Ein neues, draggbares Icon in der Bildschirmecke:
-- Ziehe den Ball an eine beliebige Position
-- Nach 5 Sekunden springt er automatisch zurück
-- Mit der Pin-Funktion bleibt er wo du willst
-- Ein Klick öffnet das Schnellspeicher-Menü
-
-### Auto-Menü
-Für macOS-Nutzer und alle, die es entspannt mögen:
-- Markiere Text und warte 3 Sekunden
-- Das Speichermenü erscheint automatisch
-- Kein Rechtsklick oder Button-Klick nötig
+### Category Shortcuts
+Das Prefix-System wurde durch ein einfacheres "Category Shortcuts"-System ersetzt:
+- Erstelle bis zu 5 Schnellspeicher-Kombis: Kategorie + Format
+- Beispiel: "Design" + ".md" = speichert als `Design_save_2025-12-15.md`
+- Shortcuts erscheinen oben im Floating-Menü mit einem Klick erreichbar
+- Einfachere Einstellungsseite ohne komplizierte Prefix-Auswahl
 
 ## Verbesserungen
 
-### Floating Button
-- Der Button erscheint jetzt weiter rechts (+40px) und verdeckt den markierten Text nicht mehr
-- Intelligente Positionierung: Der Button bleibt immer im sichtbaren Bereich
-- Bei Platzmangel wechselt er automatisch die Seite
+### Vereinfachte Bedienung
+- Direkter One-Click-Save mit vordefinierten Kategorien
+- Kein zweistufiger Dialog mehr (Format -> Prefix)
+- Saubere Trennung zwischen Shortcuts und Standard-Formaten im Menü
 
 ## Bugfixes
-- Viewport-Überlauf bei langen Textselektionen behoben
-- Button-Positionierung am Bildschirmrand korrigiert
+- Auto-Menü (3-Sekunden-Timer) entfernt - verursachte Zuverlässigkeitsprobleme
+- Prefix-Tracking entfernt - vereinfachtes System braucht keine Nutzungsstatistik
 
 ## Technische Hinweise
 - Keine neuen Berechtigungen erforderlich
-- DOCX-Generierung erfolgt vollständig lokal im Browser
-- Neue Einstellungen werden automatisch mit Standardwerten initialisiert
-- Bestehende Einstellungen bleiben erhalten
+- Alte `filePrefixes` Einstellungen werden nicht migriert - bitte neu erstellen als Shortcuts
+- Neue Storage-Key: `categoryShortcuts` (Array mit {id, name, format})
+
+---
+
+# FlashDoc 2.1.0 - Previous Release
+
+## Neu
+- **Word-Dokumente (DOCX)**: Echte .docx Dateien erstellen
+- **FlashDoc-Ball**: Draggbares Icon mit Pin-Funktion
+- **Verbesserte Button-Positionierung**: +40px Offset, Viewport-Clamping

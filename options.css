@@ -402,21 +402,21 @@ body {
   line-height: 1.5;
 }
 
-/* F2: Prefix Management Styles */
-.prefix-header {
+/* Category Shortcuts Styles */
+.shortcut-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
 }
 
-.prefix-count {
+.shortcut-count {
   font-size: 14px;
   color: var(--muted);
   font-weight: 500;
 }
 
-.prefix-count.at-limit {
+.shortcut-count.at-limit {
   color: var(--danger);
 }
 
@@ -426,25 +426,25 @@ body {
   border-radius: 8px;
 }
 
-.prefix-list {
+.shortcut-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
-.prefix-list .empty-state {
+.shortcut-list .empty-state {
   text-align: center;
   padding: 24px;
   color: var(--muted);
 }
 
-.prefix-list .empty-icon {
+.shortcut-list .empty-icon {
   font-size: 32px;
   display: block;
   margin-bottom: 8px;
 }
 
-.prefix-item {
+.shortcut-item {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -453,15 +453,26 @@ body {
   border-radius: 10px;
   border: 1px solid var(--border);
   transition: all 0.2s ease;
+  flex-wrap: wrap;
 }
 
-.prefix-item:hover {
+.shortcut-item:hover {
   border-color: rgba(56, 189, 248, 0.4);
   background: rgba(56, 189, 248, 0.05);
 }
 
-.prefix-name {
+.shortcut-preview {
+  width: 100%;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 4px;
+  font-family: monospace;
+}
+
+.shortcut-name {
   flex: 1;
+  min-width: 100px;
   padding: 8px 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -470,13 +481,29 @@ body {
   font-size: 14px;
 }
 
-.prefix-name:focus {
+.shortcut-name:focus {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
 }
 
-.prefix-delete {
+.shortcut-format {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 14px;
+  min-width: 100px;
+}
+
+.shortcut-format:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+}
+
+.shortcut-delete {
   width: 36px;
   height: 36px;
   border: none;
@@ -487,7 +514,7 @@ body {
   transition: all 0.2s ease;
 }
 
-.prefix-delete:hover {
+.shortcut-delete:hover {
   background: rgba(239, 68, 68, 0.2);
   transform: scale(1.05);
 }

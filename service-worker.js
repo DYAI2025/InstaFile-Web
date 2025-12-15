@@ -73,9 +73,8 @@ class FlashDoc {
       trackDetectionAccuracy: true,
       showFormatRecommendations: true,
       contextMenuFormats: DEFAULT_CONTEXT_MENU_FORMATS,
-      // F2: File prefix system
-      filePrefixes: [], // Array of {id, name} objects, max 5
-      prefixUsage: {} // {prefixId: count} for smart sorting
+      // Category Shortcuts: prefix + format combo
+      categoryShortcuts: [] // Array of {id, name, format} objects, max 5
     };
 
     const stored = await chrome.storage.sync.get(null);
@@ -155,7 +154,8 @@ class FlashDoc {
   setupMessageListeners() {
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (message.action === 'saveContent') {
-        this.handleSave(message.content, message.type, sender.tab)
+        const options = message.prefix ? { prefix: message.prefix } : {};
+        this.handleSave(message.content, message.type, sender.tab, options)
           .then((result) => sendResponse({ success: true, result }))
           .catch((error) => {
             const messageText = error instanceof Error ? error.message : String(error);
@@ -251,8 +251,8 @@ class FlashDoc {
           : 'txt';
       }
 
-      // Generate filename
-      const filename = this.generateFilename(content, targetType, tab);
+      // Generate filename (with optional prefix from category shortcuts)
+      const filename = this.generateFilename(content, targetType, tab, options.prefix || null);
       
       // Create file path with optional type organization
       let filepath = this.settings.folderPath;
@@ -321,6 +321,14 @@ class FlashDoc {
       .replace('T', '_')
       .slice(0, -5);
 
+    // If a category shortcut prefix is provided, use simplified naming
+    if (prefix && prefix.trim()) {
+      const sanitizedPrefix = prefix.trim().replace(/[^a-z0-9_-]/gi, '_');
+      // Use format: Category_save_YYYY-MM-DD_HH-MM-SS.ext
+      return `${sanitizedPrefix}_save_${timestamp}.${fileExtension}`;
+    }
+
+    // Standard naming patterns
     let baseName;
     switch (this.settings.namingPattern) {
       case 'firstline': {
@@ -350,45 +358,7 @@ class FlashDoc {
         baseName = `flashdoc_${timestamp}`;
     }
 
-    // F2: Apply prefix if provided
-    if (prefix && prefix.trim()) {
-      const sanitizedPrefix = prefix.trim().replace(/[^a-z0-9_-]/gi, '_');
-      baseName = `${sanitizedPrefix}_${baseName}`;
-    }
-
     return `${baseName}.${fileExtension}`;
-  }
-
-  // F2: Track prefix usage for smart sorting
-  async trackPrefixUsage(prefixId) {
-    if (!prefixId) return;
-    try {
-      const stored = await chrome.storage.local.get(['prefixUsage']);
-      const prefixUsage = stored.prefixUsage || {};
-      prefixUsage[prefixId] = (prefixUsage[prefixId] || 0) + 1;
-      await chrome.storage.local.set({ prefixUsage });
-    } catch (error) {
-      console.error('Failed to track prefix usage:', error);
-    }
-  }
-
-  // F2: Get prefixes sorted by usage frequency
-  async getSortedPrefixes() {
-    const prefixes = this.settings.filePrefixes || [];
-    if (prefixes.length === 0) return [];
-
-    try {
-      const stored = await chrome.storage.local.get(['prefixUsage']);
-      const usage = stored.prefixUsage || {};
-
-      return [...prefixes].sort((a, b) => {
-        const usageA = usage[a.id] || 0;
-        const usageB = usage[b.id] || 0;
-        return usageB - usageA; // Descending by usage
-      });
-    } catch (error) {
-      return prefixes;
-    }
   }
 
   createBlob(content, extension) {

@@ -2,32 +2,44 @@
 
 All notable changes to FlashDoc are documented in this file.
 
+## [2.2.0] - 2025-12-15
+
+### Changed
+- **Category Shortcuts**: Replaced prefix system with simplified Category Shortcuts
+  - Define up to 5 quick-save combos: Category + Format
+  - Example: "Design" + ".md" = one-click save as `Design_save_YYYY-MM-DD.md`
+  - Shortcuts appear prominently at top of floating menu
+  - Cleaner UI in settings page
+
+### Removed
+- **Auto-Menu Timer**: Removed 3-second auto-menu feature (caused reliability issues)
+- **Prefix Usage Tracking**: Simplified system no longer needs usage analytics
+
+### Technical
+- Replaced `filePrefixes`, `prefixUsage` with `categoryShortcuts` storage key
+- New content.js methods: `buildShortcutsHtml()`, `saveWithShortcut()`
+- Simplified `generateFilename()` for shortcut-based saves
+- Removed: `trackPrefixUsage()`, `getSortedPrefixes()`, auto-menu timer methods
+
 ## [2.1.0] - 2025-12-14
 
 ### Added
 - **DOCX Export**: Full Word document support with native ZIP/XML generation (no external libraries)
-- **File Prefixes System**: Define up to 5 custom prefixes in settings for better file organization
-  - Two-step save flow: Format → Prefix selection
-  - Usage tracking with frequency-based sorting
-  - CRUD management in options page
 - **Corner Ball**: New draggable FlashDoc icon in screen corner
   - Drag anywhere on screen
   - Auto snap-back after 5 seconds when released
   - Pin function to keep position permanently
   - Quick access menu on click
-- **Auto-Menu**: Selection menu automatically appears after 3 seconds of text selection (macOS-friendly)
 
 ### Changed
 - **Floating Button positioning**: Increased offset (+40px) to avoid blocking selected text
 - **Viewport clamping**: Floating button now stays within viewport bounds with smart flip logic
-- **Settings UI**: Added Corner Ball toggle and File Prefixes management section
+- **Settings UI**: Added Corner Ball toggle
 
 ### Technical
 - New content.js methods: `createCornerBall()`, `startBallDrag()`, `onBallDrag()`, `endBallDrag()`, `snapBallBack()`, `toggleBallPin()`, `showBallMenu()`
-- New timer methods: `startAutoMenuTimer()`, `clearAutoMenuTimer()`, `showAutoMenu()`
 - Service worker: `generateFilename()` extended with prefix parameter
-- Service worker: `trackPrefixUsage()`, `getSortedPrefixes()` for usage analytics
-- New storage keys: `showCornerBall`, `filePrefixes`, `prefixUsage`
+- New storage key: `showCornerBall`
 
 ## [2.0.0] - Previous Release
 
