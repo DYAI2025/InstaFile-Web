@@ -425,6 +425,9 @@ class FlashDocContent {
     // Build shortcuts HTML
     const shortcutsHtml = this.buildShortcutsHtml();
 
+    // Only show divider if there are shortcuts
+    const dividerHtml = shortcutsHtml ? '<div class="flashdoc-fab-divider"></div>' : '';
+
     const button = document.createElement('div');
     button.className = 'flashdoc-floating';
     button.innerHTML = `
@@ -435,7 +438,7 @@ class FlashDocContent {
         </div>
         <div class="flashdoc-fab-menu">
           ${shortcutsHtml}
-          <div class="flashdoc-fab-divider"></div>
+          ${dividerHtml}
           <button data-format="smart" class="flashdoc-fab-option" title="Smart Save">
             <span>🎯</span>
             <label>Auto</label>
@@ -523,11 +526,11 @@ class FlashDocContent {
 
   updateFloatingButton(hasSelection, text = '') {
     if (!this.floatingButton) return;
-    
+
     const boltIcon = this.floatingButton.querySelector('.flashdoc-fab-bolt');
     const saveIcon = this.floatingButton.querySelector('.flashdoc-fab-save');
     const fabIcon = this.floatingButton.querySelector('.flashdoc-fab-icon');
-    
+
     if (hasSelection) {
       boltIcon.style.display = 'none';
       saveIcon.style.display = 'block';
@@ -538,6 +541,19 @@ class FlashDocContent {
       saveIcon.style.display = 'none';
       fabIcon.classList.remove('active');
       fabIcon.title = 'FlashDoc - Click for options';
+    }
+  }
+
+  // Rebuild floating button when settings change (e.g., shortcuts updated)
+  rebuildFloatingButton() {
+    // Remove existing button
+    if (this.floatingButton) {
+      this.floatingButton.remove();
+      this.floatingButton = null;
+    }
+    // Create fresh button with updated shortcuts
+    if (this.settings.showFloatingButton) {
+      this.createFloatingButton();
     }
   }
 
@@ -577,7 +593,7 @@ class FlashDocContent {
   }
 
   safeSendMessage(payload, options = {}) {
-    const { retries = 2, delay = 200 } = options;
+    const { retries = 3, delay = 300 } = options; // More retries and longer delay for service worker wake-up
 
     const attemptSend = (remaining) => {
       return new Promise((resolve, reject) => {
@@ -850,12 +866,14 @@ class FlashDocContent {
         sendResponse({ text: window.getSelection().toString() });
       } else if (request.action === 'updateSettings') {
         this.loadSettings().then(() => {
-          // Update UI based on new settings
-          if (this.settings.showFloatingButton && !this.floatingButton) {
-            this.createFloatingButton();
-          } else if (!this.settings.showFloatingButton && this.floatingButton) {
-            this.floatingButton.remove();
-            this.floatingButton = null;
+          // Rebuild floating button to include new shortcuts
+          this.rebuildFloatingButton();
+          // Update corner ball
+          if (this.settings.showCornerBall && !this.cornerBall) {
+            this.createCornerBall();
+          } else if (!this.settings.showCornerBall && this.cornerBall) {
+            this.cornerBall.remove();
+            this.cornerBall = null;
           }
         });
       }
@@ -1058,8 +1076,8 @@ class FlashDocContent {
 
       .flashdoc-fab-divider {
         height: 1px;
-        background: rgba(255, 255, 255, 0.1);
-        margin: 4px 0;
+        background: linear-gradient(90deg, transparent, rgba(102, 126, 234, 0.3), transparent);
+        margin: 8px 0;
       }
 
       .flashdoc-shortcut {

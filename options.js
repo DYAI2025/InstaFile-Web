@@ -498,6 +498,7 @@ async function addShortcut() {
   shortcuts.push(newShortcut);
   await chrome.storage.sync.set({ categoryShortcuts: shortcuts });
   renderShortcutList(shortcuts);
+  notifyContentScripts(); // Notify all tabs to update their menus
   showStatusMessage('Shortcut added.', 'success');
 }
 
@@ -533,6 +534,7 @@ async function updateShortcut(shortcutId, newName, newFormat) {
     shortcut.format = newFormat;
     await chrome.storage.sync.set({ categoryShortcuts: shortcuts });
     renderShortcutList(shortcuts);
+    notifyContentScripts(); // Notify all tabs to update their menus
     showStatusMessage('Shortcut updated.', 'success');
   }
 }
@@ -542,6 +544,7 @@ async function deleteShortcut(shortcutId) {
   const shortcuts = (settings.categoryShortcuts || []).filter(s => s.id !== shortcutId);
   await chrome.storage.sync.set({ categoryShortcuts: shortcuts });
   renderShortcutList(shortcuts);
+  notifyContentScripts(); // Notify all tabs to update their menus
   showStatusMessage('Shortcut deleted.', 'success');
 }
 
@@ -555,4 +558,22 @@ function setupShortcutUI() {
 async function loadShortcuts() {
   const settings = await chrome.storage.sync.get(['categoryShortcuts']);
   renderShortcutList(settings.categoryShortcuts || []);
+}
+
+// Notify all content scripts to update their floating button with new shortcuts
+async function notifyContentScripts() {
+  try {
+    const tabs = await chrome.tabs.query({});
+    for (const tab of tabs) {
+      if (tab.id) {
+        try {
+          await chrome.tabs.sendMessage(tab.id, { action: 'updateSettings' });
+        } catch (e) {
+          // Tab might not have content script loaded (e.g., chrome:// pages)
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('Could not notify content scripts:', error);
+  }
 }

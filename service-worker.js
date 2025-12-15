@@ -175,6 +175,7 @@ class FlashDoc {
         return true;
       } else if (message.action === 'getSettings') {
         sendResponse({ settings: this.settings });
+        return true;
       } else if (message.action === 'refreshSettings') {
         this.loadSettings()
           .then(() => {
