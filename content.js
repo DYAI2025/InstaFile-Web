@@ -658,38 +658,14 @@ class FlashDocContent {
 
   // Content Type Detection
   detectContentType(text) {
-    if (!text) return 'txt';
-
-    // URL detection
-    if (/^https?:\/\/.+/i.test(text)) return 'url';
-
-    // Code detection patterns
-    const codePatterns = {
-      'ts': [/:\s*(string|number|boolean|any|void|never)\s*[;,)=]/, /interface\s+\w+/, /type\s+\w+\s*=/, /as\s+(const|string|number)/, /export\s+(type|interface)/],
-      'py': [/def\s+\w+\s*\(/, /import\s+\w+/, /from\s+\w+\s+import/, /print\s*\(/, /class\s+\w+.*:/],
-      'js': [/function\s+\w+\s*\(/, /const\s+\w+\s*=/, /let\s+\w+\s*=/, /=>\s*{/, /console\.log/],
-      'html': [/<html/i, /<body/i, /<div/, /<\/\w+>/, /<!DOCTYPE/i],
-      'css': [/\{[\s\S]*[\w-]+\s*:/, /@media/, /\.[\w-]+\s*\{/, /#[\w-]+\s*\{/, /@keyframes/],
-      'xml': [/<\?xml/i, /<svg/i, /<\w+[^>]*xmlns/, /<\w+>\s*<\w+>/],
-      'sql': [/\b(SELECT|INSERT|UPDATE|DELETE|CREATE)\s+/i, /\bFROM\s+\w+/i, /\bWHERE\s+/i, /\bJOIN\s+/i],
-      'sh': [/^#!\/bin\/(ba)?sh/m, /\b(echo|export|source)\s+/, /\$\{?\w+\}?/, /if\s+\[.*\]\s*;/],
-      'json': [/^\s*\{[\s\S]*\}\s*$/, /^\s*\[[\s\S]*\]\s*$/]
-    };
-
-    for (const [type, patterns] of Object.entries(codePatterns)) {
-      const matches = patterns.filter(p => p.test(text)).length;
-      if (matches >= 2 || (type === 'json' && matches === 1) || (type === 'xml' && matches === 1)) {
-        return type;
-      }
+    if (typeof DetectionUtils?.detectContentType === 'function') {
+      return DetectionUtils.detectContentType(text);
     }
 
-    // Data format detection
-    if (/^[\w-]+:\s*[\w\s]/m.test(text) || /^  - /m.test(text)) return 'yaml';
-    if (text.split('\n').every(line => line.split(/[,;\t]/).length > 1)) return 'csv';
+    if (!text) return 'txt';
 
-    // Document format detection
+    // Fallback: prefer simple markdown vs text handling
     if (/^#{1,6}\s+/m.test(text) || /\[.+\]\(.+\)/.test(text)) return 'md';
-
     return 'txt';
   }
 

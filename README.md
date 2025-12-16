@@ -1,113 +1,49 @@
-# FlashDoc Marketing Website
+# FlashDoc Chrome Extension
 
-Professional marketing website for the FlashDoc Chrome extension.
+FlashDoc is a Chrome extension that turns any selected text into instantly downloadable files. It ships with context menus, keyboard shortcuts, and a floating action button so you can save snippets without leaving the page.
 
-## 🚀 Quick Start
+## Features
+- **Smart format detection** with strong HTML vs. JS/TS separation.
+- Context menu entries for common formats plus configurable category shortcuts.
+- Floating action button and contextual "Save" chip near selections.
+- Usage stats and recommendations in the options page.
 
-Simply open `index.html` in any modern browser. No build process required.
+## Getting Started
+1. Open `chrome://extensions` in Chrome.
+2. Enable **Developer mode**.
+3. Click **Load unpacked** and select this repository folder.
+4. Ensure the extension is enabled. The floating button will appear when you select text on a page.
 
-## 📁 Structure
+## Using Smart Detection
+The detection engine lives in `detection-utils.js` and is shared by the background service worker and the content script. Key rules:
+- HTML is identified by document-level markers (`<!DOCTYPE html>`, `<html>`, `<head>`, `<body>`) or multiple paired tags such as `<div>…</div>` with optional `<script>`/`<style>` blocks.
+- TypeScript requires at least two TS-only signals (interfaces, typed parameters, enums, `export type/interface/enum`, React generics like `React.FC<…>`), and will refuse to trigger if HTML structure is present.
+- JavaScript detection is blocked whenever HTML structure is detected to avoid confusing markup with code snippets.
+- JSON, YAML, XML/SVG, SQL, shell scripts, CSV, Markdown, and CSS each have dedicated heuristics.
 
-```
-website-flashdoc/
-├── index.html          # Main landing page (single file)
-├── assets/             # Images and screenshots
-│   ├── FlashDoc_dyai_1280x800.png
-│   ├── FlashDoc_menu01_1280x800.png
-│   ├── FlashDoc_menu02_1280x800.png
-│   └── FlashDoc_menu03_1280x800.png
-└── README.md           # This file
-```
+The background worker delegates to the shared detector before saving files so the format shown in the UI and the downloaded extension match.
 
-## 🎨 Features
+## Options & Shortcuts
+- Open **Options** from the extension card to configure folder naming, context menu entries, and category shortcuts (e.g., `design_save.html`).
+- Default keyboard shortcuts:
+  - `Ctrl/Cmd+Shift+S` Smart Save
+  - `Ctrl/Cmd+Shift+T` Save as `.txt`
+  - `Ctrl/Cmd+Shift+M` Save as `.md`
+  - `Ctrl/Cmd+Shift+P` Save as `.pdf`
 
-- **Modern Design**: Glassmorphism, gradients, and smooth animations
-- **Fully Responsive**: Mobile-first design that works on all devices
-- **Zero Dependencies**: Pure HTML, CSS, and vanilla JavaScript
-- **SEO Optimized**: Proper meta tags and semantic HTML
-- **Fast Loading**: Single-page design with optimized assets
-- **Accessible**: WCAG AA compliant with proper ARIA labels
-
-## 🔧 Customization
-
-### Update Chrome Web Store Link
-
-Replace `EXTENSION_ID` in the following lines with your actual Chrome Web Store extension ID:
-
-```html
-<!-- Line ~486 and ~526 -->
-href="https://chrome.google.com/webstore/detail/flashdoc/EXTENSION_ID"
-```
-
-### Change Colors
-
-Edit the CSS custom properties in the `:root` selector:
-
-```css
-:root {
-  --accent-yellow: #ffcf33;
-  --accent-pink: #f973ff;
-  --accent-purple: #8b5cf6;
-  /* ... more colors */
-}
-```
-
-### Update Content
-
-All content is in `index.html`. Key sections:
-- Hero section (lines ~462-566)
-- How It Works (lines ~569-616)
-- Formats & Features (lines ~619-677)
-- Screenshots & Privacy (lines ~680-715)
-
-## 🌐 Deployment
-
-### GitHub Pages
-
-1. Push to GitHub repository
-2. Go to Settings → Pages
-3. Select main branch
-4. Your site will be live at `https://username.github.io/repo-name`
-
-### Netlify
-
-1. Drag and drop the entire folder to [Netlify Drop](https://app.netlify.com/drop)
-2. Or connect your GitHub repo for automatic deployments
-
-### Vercel
+## Testing
+A lightweight detection sanity check is included to validate the new heuristics without the browser runtime:
 
 ```bash
-npm i -g vercel
-vercel
+node scripts/detection-check.js
 ```
 
-## ✅ Pre-Launch Checklist
+The script prints the detected type for representative HTML, TypeScript, JavaScript, and Markdown samples.
 
-- [ ] Replace `EXTENSION_ID` with actual Chrome Web Store ID
-- [ ] Verify all image paths are correct
-- [ ] Test all external links (GitHub, Chrome Store)
-- [ ] Test on mobile devices (iOS Safari, Chrome Android)
-- [ ] Check responsive design at all breakpoints
-- [ ] Validate HTML/CSS (W3C validators)
-- [ ] Run Lighthouse audit (target score > 90)
-
-## 📱 Browser Support
-
-- Chrome/Edge 90+
-- Firefox 88+
-- Safari 14+
-- Mobile browsers (iOS Safari, Chrome Android)
-
-## 📄 License
-
-This website template is part of the FlashDoc project.
-
-## 🔗 Links
-
-- [FlashDoc Extension](https://chrome.google.com/webstore/detail/flashdoc/EXTENSION_ID)
-- [GitHub Repository](https://github.com/DYAI2025/FlashDoc)
-- [Report Issues](https://github.com/DYAI2025/FlashDoc/issues)
-
----
-
-Built with ⚡ for FlashDoc
+## Repository Layout
+- `content.js` – UI injected into pages (selection capture, floating UI, smart detection display).
+- `service-worker.js` – Background logic for saving files and handling context menu commands.
+- `options.html/js/css` – Settings page with stats and shortcut management.
+- `popup.html/js/css` – Browser action popup showing recent saves.
+- `detection-utils.js` – Shared format detection engine (also imported by tests).
+- `scripts/detection-check.js` – Node script that exercises the detector.

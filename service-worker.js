@@ -1,6 +1,13 @@
 // FlashDoc Service Worker
 // Core download and file management logic
 
+// Shared detection helpers (also used in content script and tests)
+try {
+  importScripts('detection-utils.js');
+} catch (error) {
+  console.warn('Detection helpers unavailable in service worker:', error);
+}
+
 const CONTEXT_MENU_ITEMS = [
   { id: 'auto', title: '\u26A1 Auto-detect & Save' },
   { id: 'txt', title: '\uD83D\uDCC4 Save as .txt' },
@@ -816,202 +823,12 @@ class FlashDoc {
   }
 
   detectContentType(content) {
-    // YAML detection
-    if (this.isYAML(content)) return 'yaml';
-
-    // Python detection
-    if (this.isPython(content)) return 'py';
-
-    // TypeScript detection (must come before JavaScript)
-    if (this.isTypeScript(content)) return 'ts';
-
-    // JavaScript detection
-    if (this.isJavaScript(content)) return 'js';
-
-    // JSON detection
-    if (this.isJSON(content)) return 'json';
-
-    // XML/SVG detection
-    if (this.isXML(content)) return 'xml';
-
-    // SQL detection
-    if (this.isSQL(content)) return 'sql';
-
-    // Shell script detection
-    if (this.isShellScript(content)) return 'sh';
-
-    // CSV detection
-    if (this.isCSV(content)) return 'csv';
-
-    // Markdown detection
-    if (this.isMarkdown(content)) return 'md';
-
-    // HTML detection
-    if (this.isHTML(content)) return 'html';
-
-    // CSS detection
-    if (this.isCSS(content)) return 'css';
-
-    // Default
-    return 'txt';
-  }
-
-  isYAML(content) {
-    const yamlPatterns = [
-      /^[\w-]+:\s+[\w\s]/m,
-      /^  - /m,
-      /^---\s*$/m,
-      /^\w+:\s*$/m
-    ];
-    return yamlPatterns.some(p => p.test(content));
-  }
-
-  isPython(content) {
-    const pythonPatterns = [
-      /^def\s+\w+\s*\(/m,
-      /^class\s+\w+/m,
-      /^import\s+\w+/m,
-      /^from\s+\w+\s+import/m,
-      /if\s+__name__\s*==\s*['"]__main__['"]/
-    ];
-    const score = pythonPatterns.filter(p => p.test(content)).length;
-    return score >= 2;
-  }
-
-  isJavaScript(content) {
-    const jsPatterns = [
-      /function\s+\w+\s*\(/,
-      /const\s+\w+\s*=/,
-      /let\s+\w+\s*=/,
-      /=>\s*{/,
-      /require\(['"]/,
-      /import\s+.*\s+from\s+['"]/
-    ];
-    const score = jsPatterns.filter(p => p.test(content)).length;
-    return score >= 2;
-  }
-
-  isJSON(content) {
-    try {
-      JSON.parse(content.trim());
-      return true;
-    } catch {
-      return false;
+    if (typeof DetectionUtils?.detectContentType === 'function') {
+      return DetectionUtils.detectContentType(content);
     }
-  }
 
-  isMarkdown(content) {
-    const mdPatterns = [
-      /^#{1,6}\s+/m,
-      /\[.+\]\(.+\)/,
-      /^\s*[-*+]\s+/m,
-      /```[\w]*\n/,
-      /^\d+\.\s+/m
-    ];
-    const score = mdPatterns.filter(p => p.test(content)).length;
-    return score >= 2;
-  }
-
-  isHTML(content) {
-    const htmlPatterns = [
-      /<html/i,
-      /<body/i,
-      /<div/i,
-      /<head/i,
-      /<!DOCTYPE/i
-    ];
-    return htmlPatterns.some(p => p.test(content));
-  }
-
-  isCSV(content) {
-    const trimmed = content.trim();
-    if (!trimmed.includes('\n')) return false;
-
-    const delimiters = [',', ';', '\t'];
-    const lines = trimmed.split(/\r?\n/);
-    const delimiter = delimiters.find(symbol => lines[0].includes(symbol));
-    if (!delimiter) return false;
-
-    const columnCount = lines[0].split(delimiter).length;
-    if (columnCount < 2) return false;
-
-    return lines.slice(1).every((line) => {
-      if (!line.trim()) return true;
-      const cells = line.split(delimiter);
-      return cells.length === columnCount;
-    });
-  }
-
-  isTypeScript(content) {
-    const tsPatterns = [
-      /:\s*(string|number|boolean|any|void|never|unknown)\s*[;,)=]/,
-      /interface\s+\w+/,
-      /type\s+\w+\s*=/,
-      /<\w+>/,
-      /as\s+(const|string|number|boolean|any)/,
-      /export\s+(type|interface)/,
-      /React\.FC</,
-      /useState<.*>/,
-      /:\s*React\./
-    ];
-    const score = tsPatterns.filter(p => p.test(content)).length;
-    return score >= 2;
-  }
-
-  isXML(content) {
-    const xmlPatterns = [
-      /<\?xml/i,
-      /<svg/i,
-      /<\w+[^>]*xmlns/,
-      /<\w+>\s*<\w+>/,
-      /<!ENTITY/i
-    ];
-    const trimmed = content.trim();
-    if (trimmed.startsWith('<?xml') || trimmed.startsWith('<svg')) return true;
-    return xmlPatterns.some(p => p.test(content));
-  }
-
-  isSQL(content) {
-    const sqlPatterns = [
-      /\b(SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|TRUNCATE)\s+/i,
-      /\bFROM\s+\w+/i,
-      /\bWHERE\s+/i,
-      /\bJOIN\s+/i,
-      /\bGROUP\s+BY\b/i,
-      /\bORDER\s+BY\b/i,
-      /\bINTO\s+\w+/i
-    ];
-    const score = sqlPatterns.filter(p => p.test(content)).length;
-    return score >= 2;
-  }
-
-  isShellScript(content) {
-    const shellPatterns = [
-      /^#!\/bin\/(ba)?sh/m,
-      /^#!\/usr\/bin\/env\s+(ba)?sh/m,
-      /\b(echo|export|source|alias)\s+/,
-      /\$\{?\w+\}?/,
-      /if\s+\[.*\]\s*;\s*then/,
-      /for\s+\w+\s+in\s+/,
-      /while\s+\[.*\]/
-    ];
-    const score = shellPatterns.filter(p => p.test(content)).length;
-    if (content.trim().startsWith('#!/bin/bash') || content.trim().startsWith('#!/bin/sh')) return true;
-    return score >= 2;
-  }
-
-  isCSS(content) {
-    const cssPatterns = [
-      /[\w-]+\s*\{[^}]*[\w-]+\s*:\s*[^}]+\}/,
-      /@media\s*\([^)]+\)/,
-      /@import\s+/,
-      /[\w-]+:\s*[\w-]+(\([^)]*\))?;/,
-      /\.([\w-]+)\s*\{/,
-      /#([\w-]+)\s*\{/,
-      /@keyframes\s+\w+/
-    ];
-    const score = cssPatterns.filter(p => p.test(content)).length;
-    return score >= 2;
+    // Fallback to plain text if helpers fail to load
+    return 'txt';
   }
 
   async trackFormatUsage(format) {
