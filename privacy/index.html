@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="canonical" href="https://flashdoc.machinetool.site/privacy">
+  <title>FlashDoc – Privacy Policy / Datenschutzerklärung</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #0f172a;
+      --panel: #111827;
+      --card: #1f2937;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --border: #1f2937;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    header {
+      background: linear-gradient(135deg, #0ea5e9, #38bdf8 40%, #0ea5e9);
+      color: #0b1221;
+      padding: 48px 20px 32px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 42px);
+      letter-spacing: -0.02em;
+    }
+
+    header p {
+      margin: 10px auto 0;
+      max-width: 780px;
+      color: #0b1221;
+      opacity: 0.8;
+      font-weight: 600;
+    }
+
+    main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 20px 64px;
+    }
+
+    .lang-switch {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+
+    .lang-switch a {
+      padding: 10px 16px;
+      border-radius: 999px;
+      text-decoration: none;
+      background: var(--card);
+      color: var(--text);
+      border: 1px solid var(--border);
+      font-weight: 600;
+      transition: transform 0.15s ease, background 0.2s ease, color 0.2s ease;
+    }
+
+    .lang-switch a:hover {
+      transform: translateY(-2px);
+      color: var(--accent);
+      background: #0b1628;
+    }
+
+    .policy-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 18px;
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 20px;
+      border: 1px solid var(--border);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+    }
+
+    h2 {
+      margin-top: 0;
+      color: #e0f2fe;
+      letter-spacing: -0.01em;
+    }
+
+    h3 {
+      margin-bottom: 6px;
+      color: var(--accent);
+    }
+
+    p, li {
+      color: var(--text);
+      margin: 0 0 10px;
+    }
+
+    ul { padding-left: 18px; }
+
+    .muted { color: var(--muted); font-size: 0.95rem; }
+
+    .note {
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 12px;
+      background: #0b1628;
+      border: 1px solid #10233d;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>FlashDoc – Privacy Policy / Datenschutzerklärung</h1>
+    <p>Diese Seite beschreibt, wie die FlashDoc-Browsererweiterung und diese Website mit Daten umgehen. This page explains how the FlashDoc browser extension and this website handle data.</p>
+  </header>
+
+  <main>
+    <nav class="lang-switch" aria-label="Language shortcuts">
+      <a href="#en">English</a>
+      <a href="#de">Deutsch</a>
+    </nav>
+
+    <section id="en" class="card">
+      <h2>English</h2>
+      <h3>Scope</h3>
+      <p>This policy covers the FlashDoc browser extension and the static website available at <code>flashdoc.machinetool.site</code>. FlashDoc converts selected text on web pages into files you download locally.</p>
+
+      <h3>Data handling</h3>
+      <ul>
+        <li><strong>No account and no server transfer:</strong> FlashDoc does not require an account and does not send your selections or files to any server.</li>
+        <li><strong>Local processing:</strong> Format detection, file generation, and clipboard/selection handling run entirely in your browser.</li>
+        <li><strong>Local storage:</strong> Preferences, feature toggles, and usage counters (for in-extension recommendations) are stored in <code>chrome.storage</code> so they remain on your device or, if you enable sync, in your browser profile.</li>
+        <li><strong>Downloads:</strong> Created files are saved via the browser download API to the folder you configured.</li>
+        <li><strong>Notifications & UI:</strong> Optional notifications and floating buttons only appear locally to guide your actions.</li>
+        <li><strong>Website:</strong> The privacy page itself is a static document without cookies, analytics, or tracking scripts.</li>
+      </ul>
+
+      <h3>Permissions explained</h3>
+      <ul>
+        <li><strong>Downloads:</strong> Save generated files to your chosen folder.</li>
+        <li><strong>Storage:</strong> Keep your settings, shortcuts, and counts for recommendations.</li>
+        <li><strong>Context menus, activeTab, tabs, scripting, host access:</strong> Inject the content script on pages you visit so selections can be captured and saved.</li>
+        <li><strong>Notifications:</strong> Show optional status updates after saves.</li>
+      </ul>
+
+      <h3>Retention and sharing</h3>
+      <ul>
+        <li>All data stays on your device/browser profile until you reset settings, clear browser data, or remove the extension.</li>
+        <li>No data is sold or shared with third parties.</li>
+      </ul>
+
+      <h3>Your choices</h3>
+      <ul>
+        <li>Adjust or reset all settings in the extension options.</li>
+        <li>Disable sync for <code>chrome.storage</code> if you want settings to remain only on the current device.</li>
+        <li>Uninstall the extension to remove its data.</li>
+      </ul>
+
+      <h3>Contact</h3>
+      <p>For privacy questions, open an issue in the project repository at <a href="https://github.com/benjiyo/flashdoc" target="_blank" rel="noopener noreferrer">github.com/benjiyo/flashdoc</a>.</p>
+    </section>
+
+    <section id="de" class="card">
+      <h2>Deutsch</h2>
+      <h3>Anwendungsbereich</h3>
+      <p>Diese Erklärung gilt für die FlashDoc-Browsererweiterung sowie die statische Website unter <code>flashdoc.machinetool.site</code>. FlashDoc wandelt markierten Text auf Webseiten in lokal heruntergeladene Dateien um.</p>
+
+      <h3>Datenverarbeitung</h3>
+      <ul>
+        <li><strong>Kein Konto, keine Übertragung:</strong> FlashDoc benötigt kein Nutzerkonto und sendet weder Markierungen noch Dateien an Server.</li>
+        <li><strong>Lokale Verarbeitung:</strong> Formaterkennung, Dateierstellung und Umgang mit Auswahl/Clipboard erfolgen ausschließlich im Browser.</li>
+        <li><strong>Lokale Speicherung:</strong> Einstellungen, Schalter und Nutzungszähler (für Empfehlungen innerhalb der Erweiterung) werden in <code>chrome.storage</code> abgelegt und verbleiben auf deinem Gerät bzw. im Browserprofil, sofern Synchronisation aktiviert ist.</li>
+        <li><strong>Downloads:</strong> Erstellte Dateien werden über die Download-API des Browsers in den von dir gewählten Ordner gespeichert.</li>
+        <li><strong>Benachrichtigungen & UI:</strong> Optionale Hinweise und Schaltflächen werden nur lokal angezeigt, um deine Aktionen zu unterstützen.</li>
+        <li><strong>Website:</strong> Diese Datenschutzseite ist ein statisches Dokument ohne Cookies, Analytics oder Tracking-Skripte.</li>
+      </ul>
+
+      <h3>Erklärung zu Berechtigungen</h3>
+      <ul>
+        <li><strong>Downloads:</strong> Speichert generierte Dateien in deinem Zielordner.</li>
+        <li><strong>Storage:</strong> Behält Einstellungen, Shortcuts und Zähler für Empfehlungen.</li>
+        <li><strong>Context Menus, activeTab, tabs, scripting, Hostzugriff:</strong> Ermöglichen das Einfügen des Content-Skripts auf besuchten Seiten, damit Markierungen erfasst und gespeichert werden können.</li>
+        <li><strong>Notifications:</strong> Zeigt optionale Statusmeldungen nach dem Speichern an.</li>
+      </ul>
+
+      <h3>Aufbewahrung und Weitergabe</h3>
+      <ul>
+        <li>Alle Daten verbleiben auf deinem Gerät bzw. Browserprofil, bis du Einstellungen zurücksetzt, Browserdaten löschst oder die Erweiterung entfernst.</li>
+        <li>Es erfolgt keine Weitergabe oder Verkauf von Daten an Dritte.</li>
+      </ul>
+
+      <h3>Deine Optionen</h3>
+      <ul>
+        <li>Ändere oder setze alle Einstellungen in den Erweiterungsoptionen zurück.</li>
+        <li>Deaktiviere die Synchronisation von <code>chrome.storage</code>, wenn Daten nur lokal auf diesem Gerät bleiben sollen.</li>
+        <li>Entferne die Erweiterung, um ihre Daten zu löschen.</li>
+      </ul>
+
+      <h3>Kontakt</h3>
+      <p>Bei Fragen zum Datenschutz kannst du ein Issue im Projekt-Repository unter <a href="https://github.com/benjiyo/flashdoc" target="_blank" rel="noopener noreferrer">github.com/benjiyo/flashdoc</a> eröffnen.</p>
+
+      <p class="muted note">Letzte Aktualisierung: Februar 2025</p>
+    </section>
+  </main>
+</body>
+</html>

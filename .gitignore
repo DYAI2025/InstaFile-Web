@@ -24,6 +24,8 @@ doctype_index.html
 CNAME
 ads.txt
 assets/
+# Allow the hosted privacy page within its own route
+!privacy/index.html
 
 # Tests (local only)
 tests/
