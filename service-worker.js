@@ -533,128 +533,82 @@ class FlashDoc {
   }
 
   createLabelPdf(content) {
-    const MM_TO_PT = 72 / 25.4;
-    const width = 89 * MM_TO_PT;
-    const height = 28 * MM_TO_PT;
-    const marginX = 12;
-    const marginY = 8;
+    // Label dimensions: 89mm x 28mm
+    const { jsPDF } = jspdf;
+    const doc = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: [89, 28]
+    });
+
+    const width = 89;
+    const height = 28;
+    const marginX = 4;
+    const marginY = 3;
     const maxLines = 4;
-    const lineHeightFactor = 1.25;
-    const widthFactor = 0.55;
 
-    const wrapLine = (text, limit) => {
-      const words = text.trim().split(/\s+/).filter(Boolean);
-      const wrapped = [];
-      let current = '';
-      words.forEach((word) => {
-        const candidate = current ? `${current} ${word}` : word;
-        if (candidate.length <= limit || current.length === 0) {
-          current = candidate;
-        } else {
-          wrapped.push(current);
-          current = word;
-        }
-      });
-      if (current) {
-        wrapped.push(current);
-      }
-      return wrapped;
-    };
+    // Normalize and clean content
+    const cleanContent = content
+      .replace(/\r\n/g, '\n')
+      .replace(/\r/g, '\n')
+      .trim();
 
-    const rawLines = content
-      .replace(/\r/g, '')
-      .split('\n')
-      .map(line => line.trim())
-      .filter(Boolean);
+    // Split into lines and flatten
+    const rawLines = cleanContent.split('\n').filter(line => line.trim());
 
-    const lines = rawLines.length ? rawLines.flatMap(line => wrapLine(line, 28)) : [''];
-
-    if (lines.length > maxLines) {
-      const head = lines.slice(0, maxLines - 1);
-      const tail = lines.slice(maxLines - 1).join(' ');
-      head.push(tail);
-      lines.length = 0;
-      lines.push(...head.slice(0, maxLines));
-    }
-
-    while (lines.length < 1) {
-      lines.push('');
-    }
-
+    // Calculate available space
     const availableWidth = width - (marginX * 2);
     const availableHeight = height - (marginY * 2);
 
-    const totalHeightFactor = 1 + ((lines.length - 1) * lineHeightFactor);
-    const maxFontFromHeight = Math.floor(availableHeight / totalHeightFactor);
-    let fontSize = Math.min(36, maxFontFromHeight || 14);
-    const minFont = 8;
+    // Start with max font size and reduce until text fits
+    let fontSize = 14;
+    const minFontSize = 6;
+    let lines = [];
+    let lineHeight = 0;
 
-    const fitsWidth = (size) => lines.every(line => line.length === 0 || (line.length * size * widthFactor) <= availableWidth);
+    while (fontSize >= minFontSize) {
+      doc.setFontSize(fontSize);
+      lineHeight = fontSize * 0.4; // Approximate line height in mm
 
-    while (fontSize > minFont && !fitsWidth(fontSize)) {
+      // Wrap all lines to fit width
+      lines = [];
+      for (const rawLine of rawLines) {
+        const wrapped = doc.splitTextToSize(rawLine, availableWidth);
+        lines.push(...wrapped);
+        if (lines.length > maxLines) break;
+      }
+
+      // Limit to max lines
+      if (lines.length > maxLines) {
+        lines = lines.slice(0, maxLines);
+      }
+
+      // Check if text fits in available height
+      const totalHeight = lines.length * lineHeight;
+      if (totalHeight <= availableHeight) {
+        break;
+      }
+
       fontSize -= 1;
     }
-    if (fontSize < minFont) {
-      fontSize = minFont;
+
+    // Center text vertically
+    const totalTextHeight = lines.length * lineHeight;
+    let y = marginY + (availableHeight - totalTextHeight) / 2 + lineHeight * 0.8;
+
+    // Set font for final render
+    doc.setFont('helvetica');
+    doc.setFontSize(fontSize);
+
+    // Draw each line centered horizontally
+    for (const line of lines) {
+      const textWidth = doc.getTextWidth(line);
+      const x = marginX + (availableWidth - textWidth) / 2;
+      doc.text(line, x, y);
+      y += lineHeight;
     }
 
-    const encoder = new TextEncoder();
-    const lineHeight = fontSize * lineHeightFactor;
-    const centerY = height / 2;
-    const baselineAdjust = fontSize * 0.3;
-
-    const escape = (text) => text.replace(/[()\\]/g, '\\$&');
-    const estimateWidth = (text) => text.length * fontSize * widthFactor;
-
-    let stream = `BT\n/F1 ${fontSize.toFixed(2)} Tf\n`;
-    lines.forEach((line, index) => {
-      const textWidth = estimateWidth(line);
-      const x = Math.max(marginX, (width - textWidth) / 2);
-      const offset = ((lines.length - 1) / 2 - index) * lineHeight;
-      const y = centerY + offset - baselineAdjust;
-      stream += `1 0 0 1 ${x.toFixed(2)} ${y.toFixed(2)} Tm\n(${escape(line) || ' '}) Tj\n`;
-    });
-    stream += 'ET';
-
-    const chunks = [];
-    let offset = 0;
-    const offsets = [0];
-
-    const push = (text) => {
-      const bytes = encoder.encode(text);
-      chunks.push(bytes);
-      offset += bytes.length;
-    };
-
-    const pushObject = (id, body) => {
-      offsets.push(offset);
-      push(`${id} 0 obj\n${body}\nendobj\n`);
-    };
-
-    push('%PDF-1.4\n');
-    pushObject(1, '<< /Type /Catalog /Pages 2 0 R >>');
-    pushObject(2, `<< /Type /Pages /Kids [3 0 R] /Count 1 >>`);
-    pushObject(3, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${width.toFixed(2)} ${height.toFixed(2)}] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>`);
-
-    const streamBytes = encoder.encode(stream);
-    pushObject(4, `<< /Length ${streamBytes.length} >>\nstream\n${stream}\nendstream`);
-    pushObject(5, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
-
-    const xrefOffset = offset;
-    push('xref\n');
-    push(`0 ${offsets.length}\n`);
-    push('0000000000 65535 f \n');
-    offsets.slice(1).forEach((value) => {
-      push(`${value.toString().padStart(10, '0')} 00000 n \n`);
-    });
-
-    push('trailer\n');
-    push(`<< /Size ${offsets.length} /Root 1 0 R >>\n`);
-    push('startxref\n');
-    push(`${xrefOffset}\n`);
-    push('%%EOF\n');
-
-    return new Blob(chunks, { type: 'application/pdf' });
+    return doc.output('blob');
   }
 
   createDocxBlob(content) {
