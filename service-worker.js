@@ -460,6 +460,13 @@ class FlashDoc {
       return { blob: labelBlob, mimeType: 'application/pdf' };
     }
 
+    if (extension === 'md') {
+      // Normalize line endings to Unix-style for Markdown
+      const normalizedContent = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      const blob = new Blob([normalizedContent], { type: 'text/markdown;charset=utf-8' });
+      return { blob, mimeType: 'text/markdown;charset=utf-8' };
+    }
+
     const mimeType = mimeTypes[extension] || 'text/plain;charset=utf-8';
     return { blob: new Blob([content], { type: mimeType }), mimeType };
   }
