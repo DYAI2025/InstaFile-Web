@@ -490,61 +490,46 @@ class FlashDoc {
   }
 
   createPdfBlob(content) {
-    const encoder = new TextEncoder();
-    const sanitized = content
-      .replace(/\r\n/g, '\n')
-      .split('\n')
-      .slice(0, 120)
-      .map(line => line.substring(0, 120).replace(/[()\\]/g, '\\$&'));
+    // Use jsPDF for reliable PDF generation
+    const { jsPDF } = jspdf;
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    });
 
-    let stream = 'BT\n/F1 12 Tf\n50 780 Td\n';
-    sanitized.forEach((line, index) => {
-      if (index > 0) {
-        stream += '0 -14 Td\n';
+    // Configure font and margins
+    doc.setFont('helvetica');
+    doc.setFontSize(11);
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 15;
+    const maxWidth = pageWidth - (margin * 2);
+    const lineHeight = 5;
+
+    // Normalize line endings and split into lines
+    const normalizedContent = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+    // Use jsPDF's splitTextToSize for proper word wrapping
+    const lines = doc.splitTextToSize(normalizedContent, maxWidth);
+
+    let y = margin + 5; // Start position
+
+    for (const line of lines) {
+      // Check if we need a new page
+      if (y + lineHeight > pageHeight - margin) {
+        doc.addPage();
+        y = margin + 5;
       }
-      stream += `(${line || ' '}) Tj\n`;
-    });
-    stream += 'ET';
 
-    const chunks = [];
-    let offset = 0;
-    const offsets = [0];
+      // Add the line (empty lines become single space to maintain spacing)
+      doc.text(line || ' ', margin, y);
+      y += lineHeight;
+    }
 
-    const push = (text) => {
-      const bytes = encoder.encode(text);
-      chunks.push(bytes);
-      offset += bytes.length;
-    };
-
-    const pushObject = (id, body) => {
-      offsets.push(offset);
-      push(`${id} 0 obj\n${body}\nendobj\n`);
-    };
-
-    push('%PDF-1.4\n');
-    pushObject(1, '<< /Type /Catalog /Pages 2 0 R >>');
-    pushObject(2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
-    pushObject(3, '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>');
-
-    const streamBytes = encoder.encode(stream);
-    pushObject(4, `<< /Length ${streamBytes.length} >>\nstream\n${stream}\nendstream`);
-    pushObject(5, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
-
-    const xrefOffset = offset;
-    push('xref\n');
-    push(`0 ${offsets.length}\n`);
-    push('0000000000 65535 f \n');
-    offsets.slice(1).forEach((value) => {
-      push(`${value.toString().padStart(10, '0')} 00000 n \n`);
-    });
-
-    push('trailer\n');
-    push(`<< /Size ${offsets.length} /Root 1 0 R >>\n`);
-    push('startxref\n');
-    push(`${xrefOffset}\n`);
-    push('%%EOF\n');
-
-    return new Blob(chunks, { type: 'application/pdf' });
+    // Return as blob
+    return doc.output('blob');
   }
 
   createLabelPdf(content) {
