@@ -1,6 +1,10 @@
 // FlashDoc Service Worker
 // Core download and file management logic
 
+// Import libraries for PDF and DOCX generation
+importScripts('./lib/jspdf.umd.min.js');
+importScripts('./lib/docx.umd.min.js');
+
 // Shared detection helpers (also used in content script and tests)
 try {
   importScripts('detection-utils.js');
