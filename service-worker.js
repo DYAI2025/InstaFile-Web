@@ -199,7 +199,10 @@ class FlashDoc {
   setupMessageListeners() {
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (message.action === 'saveContent') {
-        const options = message.prefix ? { prefix: message.prefix } : {};
+        const options = {
+          prefix: message.prefix || null,
+          html: message.html || '' // HTML content for formatting
+        };
         this.handleSave(message.content, message.type, sender.tab, options)
           .then((result) => sendResponse({ success: true, result }))
           .catch((error) => {
@@ -323,7 +326,7 @@ class FlashDoc {
       }
       filepath += filename;
 
-      const { blob, mimeType } = await this.createBlob(content, targetType);
+      const { blob, mimeType } = await this.createBlob(content, targetType, options.html || '');
       const { url, revoke } = await this.prepareDownloadUrl(blob, mimeType);
 
       const downloadId = await chrome.downloads.download({
@@ -423,15 +426,15 @@ class FlashDoc {
     return `${baseName}.${fileExtension}`;
   }
 
-  async createBlob(content, extension) {
+  async createBlob(content, extension, html = '') {
     if (extension === 'pdf') {
-      const pdfBlob = this.createPdfBlob(content);
+      const pdfBlob = this.createPdfBlob(content, html);
       return { blob: pdfBlob, mimeType: 'application/pdf' };
     }
 
     if (extension === 'docx') {
       // Note: createDocxBlob is now async, caller must await
-      const docxBlob = await this.createDocxBlob(content);
+      const docxBlob = await this.createDocxBlob(content, html);
       return { blob: docxBlob, mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' };
     }
 
@@ -497,7 +500,158 @@ class FlashDoc {
     };
   }
 
-  createPdfBlob(content) {
+  // Parse HTML content to extract formatting structure
+  // Returns array of content blocks: { type, text, level?, ordered?, runs? }
+  parseHtmlContent(html, plainText) {
+    if (!html || html.trim().length === 0) {
+      // No HTML - fall back to plain text with paragraph detection
+      return plainText.split(/\n\n+/).map(para => ({
+        type: 'paragraph',
+        runs: [{ text: para.trim(), bold: false, italic: false }]
+      })).filter(p => p.runs[0].text.length > 0);
+    }
+
+    const blocks = [];
+
+    // Create a DOM parser (works in service worker)
+    // Service workers don't have DOMParser, so we use regex-based parsing
+    const parseTextRuns = (htmlFragment) => {
+      const runs = [];
+      // Simple regex-based parsing for bold/italic
+      let remaining = htmlFragment;
+
+      // Replace common HTML entities
+      remaining = remaining
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'");
+
+      // Extract bold and italic sections
+      const boldItalicPattern = /<(strong|b|em|i)>(.*?)<\/\1>/gi;
+      let lastIndex = 0;
+      let match;
+
+      // Simple approach: just strip tags and detect inline formatting
+      const stripped = remaining
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/(p|div|li|h[1-6])>/gi, '\n')
+        .replace(/<[^>]+>/g, '')
+        .trim();
+
+      if (stripped.length > 0) {
+        runs.push({ text: stripped, bold: false, italic: false });
+      }
+
+      return runs.length > 0 ? runs : [{ text: '', bold: false, italic: false }];
+    };
+
+    // Split HTML by block elements
+    const blockPattern = /<(h[1-6]|p|li|div|tr)[^>]*>([\s\S]*?)<\/\1>/gi;
+    const listPattern = /<(ul|ol)[^>]*>([\s\S]*?)<\/\1>/gi;
+
+    let processedHtml = html;
+
+    // Process headings
+    const headingPattern = /<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi;
+    let headingMatch;
+    while ((headingMatch = headingPattern.exec(html)) !== null) {
+      const level = parseInt(headingMatch[1], 10);
+      const content = headingMatch[2];
+      const text = content.replace(/<[^>]+>/g, '').trim();
+      if (text.length > 0) {
+        blocks.push({
+          type: 'heading',
+          level: level,
+          runs: [{ text: text, bold: true, italic: false }]
+        });
+      }
+    }
+
+    // Process lists
+    const ulPattern = /<ul[^>]*>([\s\S]*?)<\/ul>/gi;
+    const olPattern = /<ol[^>]*>([\s\S]*?)<\/ol>/gi;
+
+    let listMatch;
+    while ((listMatch = ulPattern.exec(html)) !== null) {
+      const listContent = listMatch[1];
+      const liPattern = /<li[^>]*>([\s\S]*?)<\/li>/gi;
+      let liMatch;
+      while ((liMatch = liPattern.exec(listContent)) !== null) {
+        const text = liMatch[1].replace(/<[^>]+>/g, '').trim();
+        if (text.length > 0) {
+          blocks.push({
+            type: 'list-item',
+            ordered: false,
+            runs: [{ text: text, bold: false, italic: false }]
+          });
+        }
+      }
+    }
+
+    while ((listMatch = olPattern.exec(html)) !== null) {
+      const listContent = listMatch[1];
+      const liPattern = /<li[^>]*>([\s\S]*?)<\/li>/gi;
+      let liMatch;
+      let itemNumber = 1;
+      while ((liMatch = liPattern.exec(listContent)) !== null) {
+        const text = liMatch[1].replace(/<[^>]+>/g, '').trim();
+        if (text.length > 0) {
+          blocks.push({
+            type: 'list-item',
+            ordered: true,
+            number: itemNumber++,
+            runs: [{ text: text, bold: false, italic: false }]
+          });
+        }
+      }
+    }
+
+    // Process paragraphs (if no blocks found, treat as paragraphs)
+    if (blocks.length === 0) {
+      const pPattern = /<p[^>]*>([\s\S]*?)<\/p>/gi;
+      let pMatch;
+      while ((pMatch = pPattern.exec(html)) !== null) {
+        const text = pMatch[1].replace(/<[^>]+>/g, '').trim();
+        if (text.length > 0) {
+          blocks.push({
+            type: 'paragraph',
+            runs: [{ text: text, bold: false, italic: false }]
+          });
+        }
+      }
+    }
+
+    // If still no blocks, fall back to plain text parsing
+    if (blocks.length === 0) {
+      const cleanedText = html
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/(p|div|li|h[1-6]|tr)>/gi, '\n')
+        .replace(/<[^>]+>/g, '')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .trim();
+
+      const paragraphs = cleanedText.split(/\n\s*\n/).filter(p => p.trim().length > 0);
+      for (const para of paragraphs) {
+        blocks.push({
+          type: 'paragraph',
+          runs: [{ text: para.trim(), bold: false, italic: false }]
+        });
+      }
+    }
+
+    return blocks.length > 0 ? blocks : [{
+      type: 'paragraph',
+      runs: [{ text: plainText, bold: false, italic: false }]
+    }];
+  }
+
+  createPdfBlob(content, html = '') {
     // Use jsPDF for reliable PDF generation
     const { jsPDF } = jspdf;
     const doc = new jsPDF({
@@ -506,34 +660,75 @@ class FlashDoc {
       format: 'a4'
     });
 
-    // Configure font and margins
-    doc.setFont('helvetica');
-    doc.setFontSize(11);
-
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 15;
     const maxWidth = pageWidth - (margin * 2);
-    const lineHeight = 5;
 
-    // Normalize line endings and split into lines
-    const normalizedContent = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-
-    // Use jsPDF's splitTextToSize for proper word wrapping
-    const lines = doc.splitTextToSize(normalizedContent, maxWidth);
+    // Font sizes for different block types
+    const fontSizes = {
+      h1: 18, h2: 16, h3: 14, h4: 12, h5: 11, h6: 10,
+      paragraph: 11, 'list-item': 11
+    };
 
     let y = margin + 5; // Start position
 
-    for (const line of lines) {
-      // Check if we need a new page
-      if (y + lineHeight > pageHeight - margin) {
+    // Parse HTML to get formatted blocks
+    const blocks = this.parseHtmlContent(html, content);
+
+    const checkPageBreak = (neededHeight) => {
+      if (y + neededHeight > pageHeight - margin) {
         doc.addPage();
         y = margin + 5;
       }
+    };
 
-      // Add the line (empty lines become single space to maintain spacing)
-      doc.text(line || ' ', margin, y);
-      y += lineHeight;
+    for (const block of blocks) {
+      let fontSize = fontSizes.paragraph;
+      let lineHeight = 5;
+      let prefix = '';
+      let indent = 0;
+
+      // Set formatting based on block type
+      if (block.type === 'heading') {
+        fontSize = fontSizes[`h${block.level}`] || 14;
+        lineHeight = fontSize * 0.45;
+        doc.setFont('helvetica', 'bold');
+      } else if (block.type === 'list-item') {
+        fontSize = fontSizes['list-item'];
+        lineHeight = 5;
+        prefix = block.ordered ? `${block.number || '•'}. ` : '• ';
+        indent = 5;
+        doc.setFont('helvetica', 'normal');
+      } else {
+        fontSize = fontSizes.paragraph;
+        lineHeight = 5;
+        doc.setFont('helvetica', 'normal');
+      }
+
+      doc.setFontSize(fontSize);
+
+      // Get text from runs
+      const text = block.runs.map(r => r.text).join('');
+      if (!text.trim()) continue;
+
+      // Word wrap the text
+      const wrappedLines = doc.splitTextToSize(prefix + text, maxWidth - indent);
+
+      for (let i = 0; i < wrappedLines.length; i++) {
+        checkPageBreak(lineHeight);
+        const lineText = i === 0 ? wrappedLines[i] : wrappedLines[i];
+        const xPos = margin + (i === 0 ? 0 : indent);
+        doc.text(lineText, xPos, y);
+        y += lineHeight;
+      }
+
+      // Add spacing after blocks
+      if (block.type === 'heading') {
+        y += 3; // Extra space after headings
+      } else if (block.type === 'paragraph') {
+        y += 2; // Space between paragraphs
+      }
     }
 
     // Return as blob
@@ -619,30 +814,91 @@ class FlashDoc {
     return doc.output('blob');
   }
 
-  async createDocxBlob(content) {
+  async createDocxBlob(content, html = '') {
     // Use docx library for reliable DOCX generation
-    const { Document, Paragraph, TextRun, Packer } = docx;
+    const { Document, Paragraph, TextRun, Packer, HeadingLevel, AlignmentType } = docx;
 
-    // Normalize line endings
-    const normalizedContent = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    // Parse HTML content into structured blocks
+    const blocks = this.parseHtmlContent(html, content);
 
-    // Split into paragraphs (each line becomes a paragraph)
-    const lines = normalizedContent.split('\n');
+    // Heading level mapping
+    const headingLevels = {
+      1: HeadingLevel.HEADING_1,
+      2: HeadingLevel.HEADING_2,
+      3: HeadingLevel.HEADING_3,
+      4: HeadingLevel.HEADING_4,
+      5: HeadingLevel.HEADING_5,
+      6: HeadingLevel.HEADING_6
+    };
 
-    const paragraphs = lines.map(line =>
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: line || ' ', // Empty lines get a space to preserve spacing
-            font: 'Calibri',
-            size: 22 // 11pt (size is in half-points)
-          })
-        ],
-        spacing: {
-          after: 120 // 6pt spacing after each paragraph
+    // Font sizes in half-points (11pt = 22, 14pt = 28, etc.)
+    const fontSizes = {
+      h1: 36, // 18pt
+      h2: 32, // 16pt
+      h3: 28, // 14pt
+      h4: 24, // 12pt
+      h5: 22, // 11pt
+      h6: 20, // 10pt
+      paragraph: 22, // 11pt
+      'list-item': 22 // 11pt
+    };
+
+    // Track list numbering
+    let listCounter = 0;
+
+    const paragraphs = blocks.map(block => {
+      // Create text runs from block runs
+      const textRuns = block.runs.map(run => {
+        return new TextRun({
+          text: run.text,
+          font: 'Calibri',
+          size: fontSizes[block.type] || 22,
+          bold: run.bold || block.type === 'heading',
+          italics: run.italic
+        });
+      });
+
+      // Handle list items
+      if (block.type === 'list-item') {
+        if (block.ordered) {
+          listCounter++;
         }
-      })
-    );
+        const prefix = block.ordered ? `${listCounter}. ` : '• ';
+
+        // Add prefix as first run
+        textRuns.unshift(new TextRun({
+          text: prefix,
+          font: 'Calibri',
+          size: fontSizes['list-item']
+        }));
+
+        return new Paragraph({
+          children: textRuns,
+          spacing: { after: 80 },
+          indent: { left: 720 } // 0.5 inch indent for lists
+        });
+      }
+
+      // Reset list counter for non-list items
+      if (block.type !== 'list-item') {
+        listCounter = 0;
+      }
+
+      // Handle headings
+      if (block.type === 'heading') {
+        return new Paragraph({
+          children: textRuns,
+          heading: headingLevels[block.level] || HeadingLevel.HEADING_1,
+          spacing: { before: 240, after: 120 }
+        });
+      }
+
+      // Regular paragraph
+      return new Paragraph({
+        children: textRuns,
+        spacing: { after: 120 }
+      });
+    });
 
     const doc = new Document({
       sections: [{

@@ -4,6 +4,7 @@
 class FlashDocContent {
   constructor() {
     this.selectedText = '';
+    this.selectedHtml = ''; // HTML content of selection for formatting
     this.floatingButton = null;
     this.cornerBall = null; // F3: Separate corner ball element
     this.settings = {
@@ -211,9 +212,10 @@ class FlashDocContent {
       selectionTimer = setTimeout(() => {
         const selection = window.getSelection();
         const text = selection.toString().trim();
-        
+
         if (text.length > this.settings.selectionThreshold) {
           this.selectedText = text;
+          this.selectedHtml = this.captureSelectionHtml(selection);
           this.onTextSelected(text, selection);
         } else {
           this.onSelectionCleared();
@@ -232,9 +234,10 @@ class FlashDocContent {
       setTimeout(() => {
         const selection = window.getSelection();
         const text = selection.toString().trim();
-        
+
         if (text.length > this.settings.selectionThreshold) {
           this.selectedText = text;
+          this.selectedHtml = this.captureSelectionHtml(selection);
           this.showContextualButton(e.pageX, e.pageY, text);
         }
       }, 10);
@@ -245,9 +248,10 @@ class FlashDocContent {
       setTimeout(() => {
         const selection = window.getSelection();
         const text = selection.toString().trim();
-        
+
         if (text.length > this.settings.selectionThreshold) {
           this.selectedText = text;
+          this.selectedHtml = this.captureSelectionHtml(selection);
           const touch = e.changedTouches[0];
           this.showContextualButton(touch.pageX, touch.pageY, text);
         }
@@ -271,8 +275,26 @@ class FlashDocContent {
     }
   }
 
+  // Capture HTML content from selection for formatting preservation
+  captureSelectionHtml(selection) {
+    try {
+      if (!selection || selection.rangeCount === 0) {
+        return '';
+      }
+      const range = selection.getRangeAt(0);
+      const fragment = range.cloneContents();
+      const div = document.createElement('div');
+      div.appendChild(fragment);
+      return div.innerHTML;
+    } catch (error) {
+      console.warn('Could not capture HTML selection:', error);
+      return '';
+    }
+  }
+
   onSelectionCleared() {
     this.selectedText = '';
+    this.selectedHtml = '';
     this.removeHighlight();
     this.hideContextualButton();
 
@@ -680,6 +702,7 @@ class FlashDocContent {
       const response = await this.safeSendMessage({
         action: 'saveContent',
         content: this.selectedText,
+        html: this.selectedHtml, // Include HTML for formatting
         type: 'auto'
       });
 
@@ -708,11 +731,13 @@ class FlashDocContent {
     }
 
     const content = this.selectedText || document.title + '\n' + window.location.href;
+    const html = this.selectedHtml || '';
 
     try {
       const response = await this.safeSendMessage({
         action: 'saveContent',
         content: content,
+        html: html, // Include HTML for formatting
         type: format === 'smart' ? 'auto' : format
       });
 
@@ -748,6 +773,7 @@ class FlashDocContent {
       const response = await this.safeSendMessage({
         action: 'saveContent',
         content: this.selectedText,
+        html: this.selectedHtml, // Include HTML for formatting
         type: format,
         prefix: categoryName // Pass the category name as prefix
       });
