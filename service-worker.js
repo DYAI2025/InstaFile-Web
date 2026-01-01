@@ -12,6 +12,646 @@ try {
   console.warn('Detection helpers unavailable in service worker:', error);
 }
 
+// ============================================================================
+// FORMATTING ENGINE v2 - Foundation Layer
+// Fixes: Bug #1 (Bold/Italic), #3 (Order), #5 (Entities), #6 (Nested Lists)
+// ============================================================================
+
+/**
+ * EntityDecoder - Decodes HTML entities to Unicode characters
+ * FIX for Bug #5: Vollständiger Entity-Decoder
+ * @example EntityDecoder.decode('&amp;&mdash;&#8364;') → '&—€'
+ */
+const EntityDecoder = (function() {
+  // Named entity map - using Unicode escape sequences to avoid parsing issues
+  const NAMED_ENTITIES = {
+    // Core entities (XML)
+    'amp': '&', 'lt': '<', 'gt': '>', 'quot': '"', 'apos': "'",
+    // Whitespace
+    'nbsp': '\u00A0', 'ensp': '\u2002', 'emsp': '\u2003', 'thinsp': '\u2009',
+    // Dashes and punctuation
+    'mdash': '\u2014', 'ndash': '\u2013', 'minus': '\u2212',
+    'hellip': '\u2026', 'bull': '\u2022', 'middot': '\u00B7',
+    'lsquo': '\u2018', 'rsquo': '\u2019', 'ldquo': '\u201C', 'rdquo': '\u201D',
+    'laquo': '\u00AB', 'raquo': '\u00BB', 'prime': '\u2032', 'Prime': '\u2033',
+    // Currency
+    'euro': '\u20AC', 'pound': '\u00A3', 'yen': '\u00A5', 'cent': '\u00A2', 'curren': '\u00A4',
+    // Legal/IP
+    'copy': '\u00A9', 'reg': '\u00AE', 'trade': '\u2122',
+    // Math symbols
+    'times': '\u00D7', 'divide': '\u00F7', 'plusmn': '\u00B1',
+    'frac12': '\u00BD', 'frac14': '\u00BC', 'frac34': '\u00BE',
+    'deg': '\u00B0', 'sup2': '\u00B2', 'sup3': '\u00B3',
+    // Arrows
+    'larr': '\u2190', 'rarr': '\u2192', 'uarr': '\u2191', 'darr': '\u2193',
+    // Greek letters (common)
+    'alpha': '\u03B1', 'beta': '\u03B2', 'gamma': '\u03B3', 'delta': '\u03B4',
+    'pi': '\u03C0', 'sigma': '\u03C3', 'omega': '\u03C9',
+    // Accented characters (common)
+    'agrave': '\u00E0', 'aacute': '\u00E1', 'acirc': '\u00E2', 'atilde': '\u00E3', 'auml': '\u00E4',
+    'egrave': '\u00E8', 'eacute': '\u00E9', 'ecirc': '\u00EA', 'euml': '\u00EB',
+    'igrave': '\u00EC', 'iacute': '\u00ED', 'icirc': '\u00EE', 'iuml': '\u00EF',
+    'ograve': '\u00F2', 'oacute': '\u00F3', 'ocirc': '\u00F4', 'otilde': '\u00F5', 'ouml': '\u00F6',
+    'ugrave': '\u00F9', 'uacute': '\u00FA', 'ucirc': '\u00FB', 'uuml': '\u00FC',
+    'Agrave': '\u00C0', 'Aacute': '\u00C1', 'Acirc': '\u00C2', 'Atilde': '\u00C3', 'Auml': '\u00C4',
+    'Egrave': '\u00C8', 'Eacute': '\u00C9', 'Ecirc': '\u00CA', 'Euml': '\u00CB',
+    'Igrave': '\u00CC', 'Iacute': '\u00CD', 'Icirc': '\u00CE', 'Iuml': '\u00CF',
+    'Ograve': '\u00D2', 'Oacute': '\u00D3', 'Ocirc': '\u00D4', 'Otilde': '\u00D5', 'Ouml': '\u00D6',
+    'Ugrave': '\u00D9', 'Uacute': '\u00DA', 'Ucirc': '\u00DB', 'Uuml': '\u00DC',
+    'ntilde': '\u00F1', 'Ntilde': '\u00D1', 'ccedil': '\u00E7', 'Ccedil': '\u00C7',
+    'szlig': '\u00DF'
+  };
+
+  /**
+   * Decode all HTML entities in a string
+   * @param {string} str - Input string with entities
+   * @returns {string} - Decoded string
+   */
+  function decode(str) {
+    if (!str || typeof str !== 'string') return str || '';
+    
+    return str
+      // Named entities: &name;
+      .replace(/&([a-zA-Z][a-zA-Z0-9]*);/g, (match, name) => {
+        return NAMED_ENTITIES[name] || match;
+      })
+      // Decimal numeric: &#1234;
+      .replace(/&#(\d+);/g, (match, code) => {
+        const num = parseInt(code, 10);
+        return num > 0 && num < 0x110000 ? String.fromCodePoint(num) : match;
+      })
+      // Hexadecimal numeric: &#x1A2B;
+      .replace(/&#[xX]([0-9a-fA-F]+);/g, (match, hex) => {
+        const num = parseInt(hex, 16);
+        return num > 0 && num < 0x110000 ? String.fromCodePoint(num) : match;
+      });
+  }
+
+  return { decode, NAMED_ENTITIES };
+})();
+
+/**
+ * HtmlTokenizer - Converts HTML string into ordered token stream
+ * FIX for Bug #3: Dokumentreihenfolge erhalten durch Single-Pass Tokenization
+ * @example HtmlTokenizer.tokenize('<p><strong>bold</strong></p>')
+ *          → [open:p, open:strong, text:"bold", close:strong, close:p]
+ */
+const HtmlTokenizer = (function() {
+  // Self-closing tags that don't require close token
+  const SELF_CLOSING = new Set(['br', 'hr', 'img', 'input', 'meta', 'link', 'area', 'base', 'col', 'embed', 'source', 'track', 'wbr']);
+
+  /**
+   * Parse attribute string into object
+   * @param {string} attrString - e.g. 'href="url" class="cls"'
+   * @returns {Object} - {href: 'url', class: 'cls'}
+   */
+  function parseAttributes(attrString) {
+    const attrs = {};
+    if (!attrString) return attrs;
+    
+    // Match: name="value" or name='value' or name=value
+    const attrPattern = /([a-zA-Z_:][-a-zA-Z0-9_:.]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+)))?/g;
+    let match;
+    
+    while ((match = attrPattern.exec(attrString)) !== null) {
+      const name = match[1].toLowerCase();
+      const value = match[2] ?? match[3] ?? match[4] ?? '';
+      attrs[name] = EntityDecoder.decode(value);
+    }
+    
+    return attrs;
+  }
+
+  /**
+   * Tokenize HTML string into ordered array of tokens
+   * Preserves exact document order (critical for Bug #3 fix)
+   * @param {string} html - HTML string to tokenize
+   * @returns {Array<{type:string, tag?:string, content?:string, attrs?:Object}>}
+   */
+  function tokenize(html) {
+    if (!html || typeof html !== 'string') return [];
+    
+    const tokens = [];
+    // Pattern matches: <tag attrs>, </tag>, <tag/>, or <tag ... />
+    const tagPattern = /<(\/?)(\w+)([^>]*?)(\/?)>/g;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = tagPattern.exec(html)) !== null) {
+      // 1. Capture text BEFORE this tag (preserves order)
+      if (match.index > lastIndex) {
+        const textContent = html.slice(lastIndex, match.index);
+        // Keep whitespace-only text if it contains actual content
+        if (textContent.length > 0 && (textContent.trim() || /[\u00A0]/.test(textContent))) {
+          tokens.push({
+            type: 'text',
+            content: EntityDecoder.decode(textContent)
+          });
+        }
+      }
+
+      const isClosing = match[1] === '/';
+      const tagName = match[2].toLowerCase();
+      const attrString = match[3].trim();
+      const isSelfClosingSlash = match[4] === '/';
+
+      if (isClosing) {
+        // Close tag: </tag>
+        tokens.push({ type: 'close', tag: tagName });
+      } else {
+        // Open tag: <tag attrs>
+        const token = {
+          type: 'open',
+          tag: tagName,
+          attrs: parseAttributes(attrString)
+        };
+        tokens.push(token);
+
+        // Self-closing: <br/> or <br /> or naturally self-closing tags
+        if (isSelfClosingSlash || SELF_CLOSING.has(tagName)) {
+          // Don't push close for self-closing, they're handled implicitly
+        }
+      }
+
+      lastIndex = match.index + match[0].length;
+    }
+
+    // 2. Capture remaining text after last tag
+    if (lastIndex < html.length) {
+      const remaining = html.slice(lastIndex);
+      if (remaining.length > 0 && (remaining.trim() || /[\u00A0]/.test(remaining))) {
+        tokens.push({
+          type: 'text',
+          content: EntityDecoder.decode(remaining)
+        });
+      }
+    }
+
+    return tokens;
+  }
+
+  return { tokenize, parseAttributes };
+})();
+
+/**
+ * BlockBuilder - Converts token stream into structured document blocks
+ * FIX for Bug #1: Bold/Italic via Format-Stack
+ * FIX for Bug #6: Nested Lists via Level-Tracking
+ * FIX for Bug #7: Context-basierte List-Counter
+ */
+const BlockBuilder = (function() {
+  // Block-level tags that create new blocks
+  const BLOCK_TAGS = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'div', 'blockquote', 'pre', 'tr']);
+  
+  // Inline formatting tags → property name
+  const INLINE_FORMAT_MAP = {
+    'strong': 'bold', 'b': 'bold',
+    'em': 'italic', 'i': 'italic',
+    'u': 'underline',
+    's': 'strikethrough', 'strike': 'strikethrough', 'del': 'strikethrough',
+    'code': 'code', 'kbd': 'code', 'samp': 'code',
+    'sub': 'subscript', 'sup': 'superscript'
+  };
+
+  // List container tags
+  const LIST_CONTAINERS = new Set(['ul', 'ol']);
+
+  /**
+   * Parse CSS style attribute for formatting
+   * @param {string} styleAttr - e.g. "font-weight: bold; font-style: italic"
+   * @returns {Array<string>} - Array of format properties: ['bold', 'italic']
+   */
+  function parseStyleAttribute(styleAttr) {
+    const formats = [];
+    if (!styleAttr) return formats;
+    
+    const style = styleAttr.toLowerCase();
+    
+    // Bold detection: font-weight: bold/700/800/900
+    if (/font-weight\s*:\s*(bold|[7-9]00)/.test(style)) {
+      formats.push('bold');
+    }
+    
+    // Italic detection: font-style: italic/oblique
+    if (/font-style\s*:\s*(italic|oblique)/.test(style)) {
+      formats.push('italic');
+    }
+    
+    // Underline detection: text-decoration contains underline
+    if (/text-decoration[^:]*:\s*[^;]*underline/.test(style)) {
+      formats.push('underline');
+    }
+    
+    // Strikethrough detection: text-decoration contains line-through
+    if (/text-decoration[^:]*:\s*[^;]*line-through/.test(style)) {
+      formats.push('strikethrough');
+    }
+    
+    // Monospace/code detection: font-family contains mono/courier/consolas
+    if (/font-family\s*:\s*[^;]*(mono|courier|consolas|menlo)/i.test(style)) {
+      formats.push('code');
+    }
+    
+    return formats;
+  }
+
+  /**
+   * Build structured blocks from token stream
+   * @param {Array} tokens - From HtmlTokenizer.tokenize()
+   * @returns {Array<{type:string, runs:Array, level?:number, listType?:string, listLevel?:number, listIndex?:number}>}
+   */
+  function build(tokens) {
+    if (!tokens || !Array.isArray(tokens)) return [];
+
+    const blocks = [];
+    const formatStack = [];  // Active inline formats: [{tag:'strong', prop:'bold'}, ...]
+    const listStack = [];    // List nesting: [{type:'bullet'|'ordered', index:-1}, ...]
+    
+    let currentBlock = null;
+
+    /**
+     * Get current format state from stack
+     */
+    function getFormatState() {
+      const state = { bold: false, italic: false, underline: false, strikethrough: false, code: false };
+      for (const format of formatStack) {
+        if (format.prop) state[format.prop] = true;
+        // Handle CSS-derived formats (array of props)
+        if (format.cssFormats) {
+          for (const prop of format.cssFormats) {
+            state[prop] = true;
+          }
+        }
+      }
+      return state;
+    }
+
+    /**
+     * Ensure we have a current block to add runs to
+     */
+    function ensureBlock() {
+      if (!currentBlock) {
+        currentBlock = { type: 'paragraph', runs: [] };
+        blocks.push(currentBlock);
+      }
+      return currentBlock;
+    }
+
+    /**
+     * Finalize current block and start fresh
+     */
+    function finalizeBlock() {
+      if (currentBlock && currentBlock.runs.length > 0) {
+        // Trim leading/trailing empty runs
+        while (currentBlock.runs.length > 0 && !currentBlock.runs[0].text.trim()) {
+          currentBlock.runs.shift();
+        }
+        while (currentBlock.runs.length > 0 && !currentBlock.runs[currentBlock.runs.length - 1].text.trim()) {
+          currentBlock.runs.pop();
+        }
+      }
+      currentBlock = null;
+    }
+
+    // Process each token in order (preserving document order!)
+    for (const token of tokens) {
+      if (token.type === 'open') {
+        const tag = token.tag;
+        const attrs = token.attrs || {};
+
+        // Check for CSS style formatting on ANY tag
+        const cssFormats = parseStyleAttribute(attrs.style);
+
+        // List containers - push to stack
+        if (tag === 'ul') {
+          listStack.push({ type: 'bullet', index: -1 });
+        } else if (tag === 'ol') {
+          listStack.push({ type: 'ordered', index: -1 });
+        }
+        // List items - create new block
+        else if (tag === 'li') {
+          finalizeBlock();
+          const listCtx = listStack[listStack.length - 1] || { type: 'bullet', index: -1 };
+          listCtx.index++;
+          
+          currentBlock = {
+            type: 'list-item',
+            listType: listCtx.type,
+            listLevel: listStack.length - 1,
+            listIndex: listCtx.index,
+            runs: []
+          };
+          blocks.push(currentBlock);
+        }
+        // Headings
+        else if (/^h([1-6])$/.test(tag)) {
+          finalizeBlock();
+          const level = parseInt(tag.charAt(1), 10);
+          currentBlock = {
+            type: 'heading',
+            level: level,
+            runs: []
+          };
+          blocks.push(currentBlock);
+        }
+        // Paragraphs and other block elements
+        else if (BLOCK_TAGS.has(tag)) {
+          finalizeBlock();
+          currentBlock = { type: 'paragraph', runs: [] };
+          blocks.push(currentBlock);
+        }
+        
+        // Inline formatting - push to format stack (FIX for Bug #1!)
+        // Either from semantic tags OR CSS styles
+        if (INLINE_FORMAT_MAP[tag]) {
+          formatStack.push({ tag: tag, prop: INLINE_FORMAT_MAP[tag] });
+        } else if (cssFormats.length > 0) {
+          // CSS-based formatting (span, div with style)
+          formatStack.push({ tag: tag, cssFormats: cssFormats, isStyled: true });
+        }
+        
+        // Links - store href for potential use
+        if (tag === 'a') {
+          formatStack.push({ tag: 'a', href: attrs.href || '' });
+        }
+        // Line breaks
+        else if (tag === 'br') {
+          ensureBlock();
+          const state = getFormatState();
+          currentBlock.runs.push({ text: '\n', ...state });
+        }
+      }
+      else if (token.type === 'close') {
+        const tag = token.tag;
+
+        // List container closes
+        if (LIST_CONTAINERS.has(tag)) {
+          listStack.pop();
+          if (listStack.length === 0) {
+            finalizeBlock(); // Exit list context
+          }
+        }
+        // Block element closes
+        else if (tag === 'li' || /^h[1-6]$/.test(tag) || BLOCK_TAGS.has(tag)) {
+          finalizeBlock();
+        }
+        // Inline format closes - pop from stack (FIX for Bug #1!)
+        else if (INLINE_FORMAT_MAP[tag] || tag === 'a') {
+          // Find and remove matching open tag
+          for (let i = formatStack.length - 1; i >= 0; i--) {
+            if (formatStack[i].tag === tag) {
+              formatStack.splice(i, 1);
+              break;
+            }
+          }
+        }
+      }
+      else if (token.type === 'text') {
+        const text = token.content;
+        if (!text) continue;
+
+        ensureBlock();
+        const state = getFormatState();
+        
+        // Add text run with current format state
+        currentBlock.runs.push({
+          text: text,
+          bold: state.bold,
+          italic: state.italic,
+          underline: state.underline,
+          strikethrough: state.strikethrough,
+          code: state.code
+        });
+      }
+    }
+
+    // Finalize any remaining block
+    finalizeBlock();
+
+    // Clean up empty blocks
+    return blocks.filter(block => 
+      block.runs && block.runs.length > 0 && 
+      block.runs.some(run => run.text && run.text.trim())
+    );
+  }
+
+  return { build };
+})();
+
+console.log('⚡ FlashDoc Formatting Engine v2 loaded');
+
+// ============================================================================
+// BATCH 2: DOCX Renderer Layer
+// FIX for Bug #2: Echte DOCX Listen mit numbering config
+// ============================================================================
+
+/**
+ * DocxRenderer - Creates properly formatted DOCX elements
+ * Uses docx.js library with real Word formatting
+ */
+const DocxRenderer = (function() {
+  /**
+   * Create a TextRun with proper formatting from a run object
+   * @param {Object} run - {text, bold, italic, underline, strikethrough, code}
+   * @param {number} fontSize - Size in half-points (11pt = 22)
+   * @returns {Object} - docx.TextRun configuration
+   */
+  function createTextRun(run, fontSize = 22) {
+    const config = {
+      text: run.text || '',
+      font: run.code ? 'Courier New' : 'Calibri',
+      size: fontSize,
+      bold: Boolean(run.bold),
+      italics: Boolean(run.italic)
+    };
+    
+    if (run.underline) {
+      config.underline = { type: 'single' };
+    }
+    if (run.strikethrough) {
+      config.strike = true;
+    }
+    
+    return config;
+  }
+
+  /**
+   * Create numbering configuration for Word lists
+   * FIX for Bug #2: Real Word numbering instead of Unicode bullets
+   * @returns {Object} - Numbering configuration for docx.Document
+   */
+  function createNumberingConfig() {
+    return {
+      config: [
+        // Bullet list configuration (3 levels)
+        {
+          reference: 'bullet-list',
+          levels: [
+            { level: 0, format: 'bullet', text: '•', alignment: 'left', style: { paragraph: { indent: { left: 720, hanging: 360 } } } },
+            { level: 1, format: 'bullet', text: '○', alignment: 'left', style: { paragraph: { indent: { left: 1440, hanging: 360 } } } },
+            { level: 2, format: 'bullet', text: '▪', alignment: 'left', style: { paragraph: { indent: { left: 2160, hanging: 360 } } } }
+          ]
+        },
+        // Ordered list configuration (3 levels)
+        {
+          reference: 'ordered-list',
+          levels: [
+            { level: 0, format: 'decimal', text: '%1.', alignment: 'left', style: { paragraph: { indent: { left: 720, hanging: 360 } } } },
+            { level: 1, format: 'lowerLetter', text: '%2)', alignment: 'left', style: { paragraph: { indent: { left: 1440, hanging: 360 } } } },
+            { level: 2, format: 'lowerRoman', text: '%3.', alignment: 'left', style: { paragraph: { indent: { left: 2160, hanging: 360 } } } }
+          ]
+        }
+      ]
+    };
+  }
+
+  return { createTextRun, createNumberingConfig };
+})();
+
+// ============================================================================
+// BATCH 3: PDF Renderer Layer
+// FIX for Bug #4: Korrekte Ordered-List Nummerierung
+// FIX for Bug #7: Context-basierte Counter (separate per list)
+// ============================================================================
+
+/**
+ * PdfListContext - Manages list counters for PDF rendering
+ * FIX for Bug #4: PDF zeigt "1. 2. 3." statt "•."
+ * FIX for Bug #7: Zweite <ol> startet bei 1 (nicht fortlaufend)
+ */
+const PdfListContext = (function() {
+  let counters = {};      // Counter per level: {'ordered-0': 1, 'ordered-1': 1, ...}
+  let lastListType = null;
+  let lastListLevel = -1;
+  let inListContext = false;
+
+  /**
+   * Reset all counters (call at start of new document)
+   */
+  function reset() {
+    counters = {};
+    lastListType = null;
+    lastListLevel = -1;
+    inListContext = false;
+  }
+
+  /**
+   * Get prefix for a block (bullet or number)
+   * @param {Object} block - Block with type, listType, listLevel, listIndex
+   * @returns {string|null} - Prefix like "• " or "1. " or null for non-list
+   */
+  function getPrefix(block) {
+    // Non-list block exits list context
+    if (block.type !== 'list-item') {
+      if (inListContext) {
+        reset();
+      }
+      return null;
+    }
+
+    inListContext = true;
+    const level = block.listLevel || 0;
+    const type = block.listType || 'bullet';
+    const key = `${type}-${level}`;
+
+    // Detect NEW list (different type at same level, or first item at level 0)
+    const isNewList = 
+      (block.listIndex === 0 && level === 0) ||
+      (type !== lastListType && level === 0);
+
+    if (isNewList) {
+      // Reset counters for new list
+      counters = {};
+    }
+
+    // Ordered list: increment and return number
+    if (type === 'ordered') {
+      counters[key] = (counters[key] || 0) + 1;
+      lastListType = type;
+      lastListLevel = level;
+      return `${counters[key]}. `;
+    }
+
+    // Bullet list: return appropriate bullet for level
+    const bullets = ['•', '○', '▪'];
+    const bulletIndex = Math.min(level, bullets.length - 1);
+    lastListType = type;
+    lastListLevel = level;
+    return `${bullets[bulletIndex]} `;
+  }
+
+  return { getPrefix, reset };
+})();
+
+/**
+ * PdfRenderer - Renders formatted runs to jsPDF
+ * FIX for Bug #1: Bold/Italic korrekt in PDF
+ */
+const PdfRenderer = (function() {
+  /**
+   * Render a single text run with formatting
+   * @param {Object} doc - jsPDF instance
+   * @param {Object} run - {text, bold, italic, underline, code}
+   * @param {number} x - X position in mm
+   * @param {number} y - Y position in mm
+   * @param {number} fontSize - Font size in pt
+   * @returns {number} - New X position after text
+   */
+  function renderRun(doc, run, x, y, fontSize) {
+    if (!run.text) return x;
+
+    // Determine font style based on formatting
+    let fontStyle = 'normal';
+    if (run.bold && run.italic) {
+      fontStyle = 'bolditalic';
+    } else if (run.bold) {
+      fontStyle = 'bold';
+    } else if (run.italic) {
+      fontStyle = 'italic';
+    }
+
+    // Set font (use monospace for code)
+    const fontFamily = run.code ? 'courier' : 'helvetica';
+    doc.setFont(fontFamily, fontStyle);
+    doc.setFontSize(fontSize);
+    
+    // Render text
+    doc.text(run.text, x, y);
+    
+    // Return new X position
+    const textWidth = doc.getTextWidth(run.text);
+    return x + textWidth;
+  }
+
+  /**
+   * Render all runs in a block, handling word wrap
+   * @param {Object} doc - jsPDF instance
+   * @param {Array} runs - Array of run objects
+   * @param {number} startX - Starting X position
+   * @param {number} y - Y position
+   * @param {number} fontSize - Font size
+   * @param {number} maxWidth - Maximum width for wrapping
+   * @returns {number} - Final X position
+   */
+  function renderRuns(doc, runs, startX, y, fontSize, maxWidth) {
+    let x = startX;
+    
+    for (const run of runs) {
+      x = renderRun(doc, run, x, y, fontSize);
+    }
+    
+    return x;
+  }
+
+  return { renderRun, renderRuns };
+})();
+
+console.log('⚡ FlashDoc Renderer Layer loaded');
+
+// ============================================================================
+// END FORMATTING ENGINE v2
+// ============================================================================
+
 const CONTEXT_MENU_ITEMS = [
   { id: 'auto', title: '\u26A1 Auto-detect & Save' },
   { id: 'txt', title: '\uD83D\uDCC4 Save as .txt' },
@@ -105,8 +745,8 @@ class FlashDoc {
   }
 
   setupContextMenus() {
-    console.log('🔧 Setting up context menus...');
-    console.log('📦 Current settings.categoryShortcuts:', this.settings.categoryShortcuts);
+    console.log('ðŸ”§ Setting up context menus...');
+    console.log('ðŸ“¦ Current settings.categoryShortcuts:', this.settings.categoryShortcuts);
 
     // Remove existing menus
     chrome.contextMenus.removeAll(() => {
@@ -115,7 +755,7 @@ class FlashDoc {
       }
 
       if (!this.settings.enableContextMenu) {
-        console.log('⏭️ Context menu disabled in settings');
+        console.log('â­ï¸ Context menu disabled in settings');
         return;
       }
 
@@ -144,7 +784,7 @@ class FlashDoc {
 
       // Add category shortcuts (prefix combos) if any exist
       const shortcuts = this.settings.categoryShortcuts || [];
-      console.log('📋 Category shortcuts:', shortcuts);
+      console.log('ðŸ“‹ Category shortcuts:', shortcuts);
       if (shortcuts.length > 0) {
         // Add separator
         chrome.contextMenus.create({
@@ -156,13 +796,13 @@ class FlashDoc {
 
         // Add each shortcut
         const formatEmojis = {
-          txt: '📄', md: '📝', docx: '📜', pdf: '📕', json: '🧩',
-          js: '🟡', ts: '🔵', py: '🐍', html: '🌐', css: '🎨',
-          yaml: '🧾', sql: '📑', sh: '⚙️'
+          txt: 'ðŸ“„', md: 'ðŸ“', docx: 'ðŸ“œ', pdf: 'ðŸ“•', json: 'ðŸ§©',
+          js: 'ðŸŸ¡', ts: 'ðŸ”µ', py: 'ðŸ', html: 'ðŸŒ', css: 'ðŸŽ¨',
+          yaml: 'ðŸ§¾', sql: 'ðŸ“‘', sh: 'âš™ï¸'
         };
 
         shortcuts.forEach(shortcut => {
-          const emoji = formatEmojis[shortcut.format] || '📄';
+          const emoji = formatEmojis[shortcut.format] || 'ðŸ“„';
           chrome.contextMenus.create({
             id: `flashdoc-shortcut-${shortcut.id}`,
             parentId: 'flashdoc-parent',
@@ -260,10 +900,46 @@ class FlashDoc {
       return;
     }
 
-    // Standard format save
-    this.handleSave(info.selectionText, menuId, tab).catch((error) => {
+    // Standard format save - need to get HTML from tab
+    this.getHtmlSelectionAndSave(info.selectionText, menuId, tab).catch((error) => {
       console.error('Context menu save failed:', error);
     });
+  }
+
+  /**
+   * Get HTML selection from tab and save
+   */
+  async getHtmlSelectionAndSave(fallbackText, type, tab) {
+    let html = '';
+    let text = fallbackText;
+    
+    // Try to get HTML from the tab
+    if (tab && tab.id) {
+      try {
+        const [result] = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => {
+            const sel = window.getSelection();
+            if (!sel || sel.rangeCount === 0) return { html: '' };
+            try {
+              const range = sel.getRangeAt(0);
+              const container = document.createElement('div');
+              container.appendChild(range.cloneContents());
+              return { html: container.innerHTML };
+            } catch (e) {
+              return { html: '' };
+            }
+          }
+        });
+        if (result && result.result && result.result.html) {
+          html = result.result.html;
+        }
+      } catch (e) {
+        console.log('[FlashDoc] Could not get HTML selection:', e);
+      }
+    }
+    
+    await this.handleSave(text, type, tab, { html });
   }
 
   async getSelectionAndSave(type) {
@@ -278,11 +954,29 @@ class FlashDoc {
 
       const [selection] = await chrome.scripting.executeScript({
         target: { tabId: tab.id },
-        func: () => window.getSelection().toString()
+        func: () => {
+          const sel = window.getSelection();
+          if (!sel || sel.rangeCount === 0) return { text: '', html: '' };
+          
+          const text = sel.toString();
+          
+          // Extract HTML from selection
+          let html = '';
+          try {
+            const range = sel.getRangeAt(0);
+            const container = document.createElement('div');
+            container.appendChild(range.cloneContents());
+            html = container.innerHTML;
+          } catch (e) {
+            html = '';
+          }
+          
+          return { text, html };
+        }
       });
 
-      if (selection && selection.result && selection.result.trim()) {
-        await this.handleSave(selection.result, type, tab);
+      if (selection && selection.result && selection.result.text && selection.result.text.trim()) {
+        await this.handleSave(selection.result.text, type, tab, { html: selection.result.html });
       } else {
         const error = new Error('No text selected');
         error.handled = true;
@@ -500,181 +1194,50 @@ class FlashDoc {
     };
   }
 
-  // Parse HTML content to extract formatting structure
-  // Returns array of content blocks: { type, text, level?, ordered?, runs? }
-  parseHtmlContent(html, plainText) {
-    if (!html || html.trim().length === 0) {
-      // No HTML - fall back to plain text with paragraph detection
-      return plainText.split(/\n\n+/).map(para => ({
-        type: 'paragraph',
-        runs: [{ text: para.trim(), bold: false, italic: false }]
-      })).filter(p => p.runs[0].text.length > 0);
-    }
-
-    const blocks = [];
-
-    // Create a DOM parser (works in service worker)
-    // Service workers don't have DOMParser, so we use regex-based parsing
-    const parseTextRuns = (htmlFragment) => {
-      const runs = [];
-      // Simple regex-based parsing for bold/italic
-      let remaining = htmlFragment;
-
-      // Replace common HTML entities
-      remaining = remaining
-        .replace(/&nbsp;/g, ' ')
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'");
-
-      // Extract bold and italic sections
-      const boldItalicPattern = /<(strong|b|em|i)>(.*?)<\/\1>/gi;
-      let lastIndex = 0;
-      let match;
-
-      // Simple approach: just strip tags and detect inline formatting
-      const stripped = remaining
-        .replace(/<br\s*\/?>/gi, '\n')
-        .replace(/<\/(p|div|li|h[1-6])>/gi, '\n')
-        .replace(/<[^>]+>/g, '')
-        .trim();
-
-      if (stripped.length > 0) {
-        runs.push({ text: stripped, bold: false, italic: false });
-      }
-
-      return runs.length > 0 ? runs : [{ text: '', bold: false, italic: false }];
-    };
-
-    // Split HTML by block elements
-    const blockPattern = /<(h[1-6]|p|li|div|tr)[^>]*>([\s\S]*?)<\/\1>/gi;
-    const listPattern = /<(ul|ol)[^>]*>([\s\S]*?)<\/\1>/gi;
-
-    let processedHtml = html;
-
-    // Process headings
-    const headingPattern = /<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi;
-    let headingMatch;
-    while ((headingMatch = headingPattern.exec(html)) !== null) {
-      const level = parseInt(headingMatch[1], 10);
-      const content = headingMatch[2];
-      const text = content.replace(/<[^>]+>/g, '').trim();
-      if (text.length > 0) {
-        blocks.push({
-          type: 'heading',
-          level: level,
-          runs: [{ text: text, bold: true, italic: false }]
-        });
-      }
-    }
-
-    // Process lists
-    const ulPattern = /<ul[^>]*>([\s\S]*?)<\/ul>/gi;
-    const olPattern = /<ol[^>]*>([\s\S]*?)<\/ol>/gi;
-
-    let listMatch;
-    while ((listMatch = ulPattern.exec(html)) !== null) {
-      const listContent = listMatch[1];
-      const liPattern = /<li[^>]*>([\s\S]*?)<\/li>/gi;
-      let liMatch;
-      while ((liMatch = liPattern.exec(listContent)) !== null) {
-        const text = liMatch[1].replace(/<[^>]+>/g, '').trim();
-        if (text.length > 0) {
-          blocks.push({
-            type: 'list-item',
-            ordered: false,
-            runs: [{ text: text, bold: false, italic: false }]
-          });
-        }
-      }
-    }
-
-    while ((listMatch = olPattern.exec(html)) !== null) {
-      const listContent = listMatch[1];
-      const liPattern = /<li[^>]*>([\s\S]*?)<\/li>/gi;
-      let liMatch;
-      let itemNumber = 1;
-      while ((liMatch = liPattern.exec(listContent)) !== null) {
-        const text = liMatch[1].replace(/<[^>]+>/g, '').trim();
-        if (text.length > 0) {
-          blocks.push({
-            type: 'list-item',
-            ordered: true,
-            number: itemNumber++,
-            runs: [{ text: text, bold: false, italic: false }]
-          });
-        }
-      }
-    }
-
-    // Process paragraphs (if no blocks found, treat as paragraphs)
-    if (blocks.length === 0) {
-      const pPattern = /<p[^>]*>([\s\S]*?)<\/p>/gi;
-      let pMatch;
-      while ((pMatch = pPattern.exec(html)) !== null) {
-        const text = pMatch[1].replace(/<[^>]+>/g, '').trim();
-        if (text.length > 0) {
-          blocks.push({
-            type: 'paragraph',
-            runs: [{ text: text, bold: false, italic: false }]
-          });
-        }
-      }
-    }
-
-    // If still no blocks, fall back to plain text parsing
-    if (blocks.length === 0) {
-      const cleanedText = html
-        .replace(/<br\s*\/?>/gi, '\n')
-        .replace(/<\/(p|div|li|h[1-6]|tr)>/gi, '\n')
-        .replace(/<[^>]+>/g, '')
-        .replace(/&nbsp;/g, ' ')
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .trim();
-
-      const paragraphs = cleanedText.split(/\n\s*\n/).filter(p => p.trim().length > 0);
-      for (const para of paragraphs) {
-        blocks.push({
-          type: 'paragraph',
-          runs: [{ text: para.trim(), bold: false, italic: false }]
-        });
-      }
-    }
-
-    return blocks.length > 0 ? blocks : [{
-      type: 'paragraph',
-      runs: [{ text: plainText, bold: false, italic: false }]
-    }];
-  }
+  // DEPRECATED: parseHtmlContent removed in v2
+  // Replaced by: HtmlTokenizer.tokenize() + BlockBuilder.build()
+  // See FORMATTING ENGINE v2 at top of file
 
   createPdfBlob(content, html = '') {
-    // Use jsPDF for reliable PDF generation
+    // NEW PIPELINE v2: Use Formatting Engine
     const { jsPDF } = jspdf;
-    const doc = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4'
-    });
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 15;
     const maxWidth = pageWidth - (margin * 2);
 
-    // Font sizes for different block types
+    // DEBUG: Log input
+    console.log('[PDF] Input HTML length:', html?.length || 0);
+    console.log('[PDF] Input HTML preview:', html?.substring(0, 200));
+
+    // Parse HTML using new tokenizer → builder pipeline
+    let blocks;
+    if (html && html.trim()) {
+      const tokens = HtmlTokenizer.tokenize(html);
+      console.log('[PDF] Tokens:', tokens.length, tokens.slice(0, 5));
+      blocks = BlockBuilder.build(tokens);
+      console.log('[PDF] Blocks:', blocks.length);
+      // Log first block with runs for debugging
+      if (blocks[0]) {
+        console.log('[PDF] First block:', JSON.stringify(blocks[0], null, 2));
+      }
+    } else {
+      console.log('[PDF] No HTML - using plain text fallback');
+      blocks = content.split(/\n\n+/).map(para => ({
+        type: 'paragraph',
+        runs: [{ text: para.trim(), bold: false, italic: false }]
+      })).filter(b => b.runs.length > 0 && b.runs[0].text.length > 0);
+    }
+
     const fontSizes = {
       h1: 18, h2: 16, h3: 14, h4: 12, h5: 11, h6: 10,
       paragraph: 11, 'list-item': 11
     };
 
-    let y = margin + 5; // Start position
-
-    // Parse HTML to get formatted blocks
-    const blocks = this.parseHtmlContent(html, content);
+    let y = margin + 5;
+    PdfListContext.reset(); // Reset list counters for new document
 
     const checkPageBreak = (neededHeight) => {
       if (y + neededHeight > pageHeight - margin) {
@@ -686,52 +1249,74 @@ class FlashDoc {
     for (const block of blocks) {
       let fontSize = fontSizes.paragraph;
       let lineHeight = 5;
-      let prefix = '';
-      let indent = 0;
+      let x = margin;
 
-      // Set formatting based on block type
+      // Heading formatting
       if (block.type === 'heading') {
         fontSize = fontSizes[`h${block.level}`] || 14;
         lineHeight = fontSize * 0.45;
-        doc.setFont('helvetica', 'bold');
-      } else if (block.type === 'list-item') {
-        fontSize = fontSizes['list-item'];
-        lineHeight = 5;
-        prefix = block.ordered ? `${block.number || '•'}. ` : '• ';
-        indent = 5;
-        doc.setFont('helvetica', 'normal');
-      } else {
-        fontSize = fontSizes.paragraph;
-        lineHeight = 5;
-        doc.setFont('helvetica', 'normal');
       }
 
-      doc.setFontSize(fontSize);
-
-      // Get text from runs
-      const text = block.runs.map(r => r.text).join('');
-      if (!text.trim()) continue;
-
-      // Word wrap the text
-      const wrappedLines = doc.splitTextToSize(prefix + text, maxWidth - indent);
-
-      for (let i = 0; i < wrappedLines.length; i++) {
+      // Get list prefix (FIX Bug #4 and #7!)
+      const prefix = PdfListContext.getPrefix(block);
+      if (prefix) {
+        const indent = (block.listLevel || 0) * 5;
+        x = margin + indent;
         checkPageBreak(lineHeight);
-        const lineText = i === 0 ? wrappedLines[i] : wrappedLines[i];
-        const xPos = margin + (i === 0 ? 0 : indent);
-        doc.text(lineText, xPos, y);
-        y += lineHeight;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(fontSize);
+        doc.text(prefix, x, y);
+        x += doc.getTextWidth(prefix);
       }
 
-      // Add spacing after blocks
-      if (block.type === 'heading') {
-        y += 3; // Extra space after headings
-      } else if (block.type === 'paragraph') {
-        y += 2; // Space between paragraphs
+      // Render all runs with formatting (FIX Bug #1!)
+      for (const run of block.runs) {
+        if (!run.text || !run.text.trim()) continue;
+        
+        checkPageBreak(lineHeight);
+        
+        // Set font style based on formatting
+        let fontStyle = 'normal';
+        if (run.bold && run.italic) fontStyle = 'bolditalic';
+        else if (run.bold) fontStyle = 'bold';
+        else if (run.italic) fontStyle = 'italic';
+        
+        // Heading always bold
+        if (block.type === 'heading') fontStyle = run.italic ? 'bolditalic' : 'bold';
+
+        // DEBUG: Log formatting being applied
+        if (run.bold || run.italic) {
+          console.log('[PDF] Applying format:', fontStyle, 'to:', run.text.substring(0, 30));
+        }
+
+        const fontFamily = run.code ? 'courier' : 'helvetica';
+        doc.setFont(fontFamily, fontStyle);
+        doc.setFontSize(fontSize);
+
+        // Word wrap for long text
+        const availableWidth = maxWidth - (x - margin);
+        const wrappedLines = doc.splitTextToSize(run.text, availableWidth);
+        
+        for (let i = 0; i < wrappedLines.length; i++) {
+          if (i > 0) {
+            y += lineHeight;
+            checkPageBreak(lineHeight);
+            x = margin + ((block.listLevel || 0) * 5);
+            if (prefix) x += doc.getTextWidth(prefix);
+          }
+          doc.text(wrappedLines[i], x, y);
+        }
+        
+        x += doc.getTextWidth(wrappedLines[wrappedLines.length - 1] || '');
       }
+
+      y += lineHeight;
+
+      // Extra spacing after blocks
+      if (block.type === 'heading') y += 3;
+      else if (block.type === 'paragraph') y += 2;
     }
 
-    // Return as blob
     return doc.output('blob');
   }
 
@@ -815,11 +1400,21 @@ class FlashDoc {
   }
 
   async createDocxBlob(content, html = '') {
-    // Use docx library for reliable DOCX generation
-    const { Document, Paragraph, TextRun, Packer, HeadingLevel, AlignmentType } = docx;
+    // NEW PIPELINE v2: Use Formatting Engine
+    const { Document, Paragraph, TextRun, Packer, HeadingLevel } = docx;
 
-    // Parse HTML content into structured blocks
-    const blocks = this.parseHtmlContent(html, content);
+    // Parse HTML using new tokenizer → builder pipeline
+    let blocks;
+    if (html && html.trim()) {
+      const tokens = HtmlTokenizer.tokenize(html);
+      blocks = BlockBuilder.build(tokens);
+    } else {
+      // Fallback: plain text to paragraphs
+      blocks = content.split(/\n\n+/).map(para => ({
+        type: 'paragraph',
+        runs: [{ text: para.trim(), bold: false, italic: false }]
+      })).filter(b => b.runs.length > 0 && b.runs[0].text.length > 0);
+    }
 
     // Heading level mapping
     const headingLevels = {
@@ -831,60 +1426,38 @@ class FlashDoc {
       6: HeadingLevel.HEADING_6
     };
 
-    // Font sizes in half-points (11pt = 22, 14pt = 28, etc.)
+    // Font sizes in half-points (11pt = 22)
     const fontSizes = {
-      h1: 36, // 18pt
-      h2: 32, // 16pt
-      h3: 28, // 14pt
-      h4: 24, // 12pt
-      h5: 22, // 11pt
-      h6: 20, // 10pt
-      paragraph: 22, // 11pt
-      'list-item': 22 // 11pt
+      h1: 36, h2: 32, h3: 28, h4: 24, h5: 22, h6: 20,
+      paragraph: 22, 'list-item': 22, heading: 28
     };
 
-    // Track list numbering
-    let listCounter = 0;
-
+    // Build paragraphs with proper formatting
     const paragraphs = blocks.map(block => {
-      // Create text runs from block runs
+      const fontSize = block.type === 'heading' 
+        ? (fontSizes[`h${block.level}`] || 28)
+        : (fontSizes[block.type] || 22);
+
+      // Create text runs with formatting (FIX Bug #1!)
       const textRuns = block.runs.map(run => {
-        return new TextRun({
-          text: run.text,
-          font: 'Calibri',
-          size: fontSizes[block.type] || 22,
-          bold: run.bold || block.type === 'heading',
-          italics: run.italic
-        });
+        const config = DocxRenderer.createTextRun(run, fontSize);
+        if (block.type === 'heading') config.bold = true;
+        return new TextRun(config);
       });
 
-      // Handle list items
+      // List items with REAL Word numbering (FIX Bug #2!)
       if (block.type === 'list-item') {
-        if (block.ordered) {
-          listCounter++;
-        }
-        const prefix = block.ordered ? `${listCounter}. ` : '• ';
-
-        // Add prefix as first run
-        textRuns.unshift(new TextRun({
-          text: prefix,
-          font: 'Calibri',
-          size: fontSizes['list-item']
-        }));
-
+        const level = Math.min(block.listLevel || 0, 2);
+        const reference = block.listType === 'ordered' ? 'ordered-list' : 'bullet-list';
+        
         return new Paragraph({
           children: textRuns,
-          spacing: { after: 80 },
-          indent: { left: 720 } // 0.5 inch indent for lists
+          numbering: { reference, level },
+          spacing: { after: 80 }
         });
       }
 
-      // Reset list counter for non-list items
-      if (block.type !== 'list-item') {
-        listCounter = 0;
-      }
-
-      // Handle headings
+      // Headings
       if (block.type === 'heading') {
         return new Paragraph({
           children: textRuns,
@@ -900,27 +1473,20 @@ class FlashDoc {
       });
     });
 
+    // Create document with numbering configuration (FIX Bug #2!)
     const doc = new Document({
+      numbering: DocxRenderer.createNumberingConfig(),
       sections: [{
         properties: {
           page: {
-            size: {
-              width: 12240, // 8.5 inches in twentieths of a point
-              height: 15840 // 11 inches
-            },
-            margin: {
-              top: 1440, // 1 inch
-              right: 1440,
-              bottom: 1440,
-              left: 1440
-            }
+            size: { width: 12240, height: 15840 },
+            margin: { top: 1440, right: 1440, bottom: 1440, left: 1440 }
           }
         },
         children: paragraphs
       }]
     });
 
-    // Generate blob
     return await Packer.toBlob(doc);
   }
 
@@ -975,7 +1541,7 @@ new FlashDoc();
 
 // Handle installation and extension reload
 chrome.runtime.onInstalled.addListener(async (details) => {
-  console.log(`⚡ FlashDoc ${details.reason}: re-injecting content scripts...`);
+  console.log(`âš¡ FlashDoc ${details.reason}: re-injecting content scripts...`);
 
   // Re-inject content scripts into all existing tabs to fix "Extension not available" error
   // This is necessary because old content scripts become orphaned after extension reload
@@ -992,10 +1558,10 @@ chrome.runtime.onInstalled.addListener(async (details) => {
             target: { tabId: tab.id, allFrames: true },
             files: ['content.js']
           });
-          console.log(`✅ Injected into tab ${tab.id}: ${tab.url.substring(0, 50)}...`);
+          console.log(`âœ… Injected into tab ${tab.id}: ${tab.url.substring(0, 50)}...`);
         } catch (e) {
           // Tab might not support scripting - this is normal
-          console.log(`⏭️ Skipped tab ${tab.id}: ${e.message}`);
+          console.log(`â­ï¸ Skipped tab ${tab.id}: ${e.message}`);
         }
       }
     }
@@ -1004,7 +1570,7 @@ chrome.runtime.onInstalled.addListener(async (details) => {
   }
 
   if (details.reason === 'install') {
-    console.log('🎉 FlashDoc installed!');
+    console.log('ðŸŽ‰ FlashDoc installed!');
     chrome.tabs.create({ url: 'options.html' });
   }
 });
