@@ -680,8 +680,13 @@ class FlashDocContent {
 
   // Content Type Detection
   detectContentType(text) {
-    if (typeof DetectionUtils?.detectContentType === 'function') {
-      return DetectionUtils.detectContentType(text);
+    // Avoid ReferenceError when DetectionUtils isn't injected (e.g., CSP-blocked iframes)
+    const detectionUtils =
+      (typeof globalThis !== 'undefined' && globalThis.DetectionUtils) ? globalThis.DetectionUtils :
+      (typeof DetectionUtils !== 'undefined' ? DetectionUtils : null);
+
+    if (detectionUtils && typeof detectionUtils.detectContentType === 'function') {
+      return detectionUtils.detectContentType(text);
     }
 
     if (!text) return 'txt';
